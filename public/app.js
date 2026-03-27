@@ -35,14 +35,22 @@ async function handleAuth(action, username, password) {
         });
         const data = await res.json();
         
-        if (data.token) {
-            localStorage.setItem("user", JSON.stringify(data));
-            location.reload();
+        if (res.ok) {
+            // EĞER KAYIT BAŞARILIYSA: Hemen otomatik giriş yap
+            if (action === 'register') {
+                return handleAuth('login', username, password); 
+            }
+            
+            // EĞER GİRİŞ BAŞARILIYSA: Token'ı kaydet ve sayfayı yenile
+            if (data.token) {
+                localStorage.setItem("user", JSON.stringify(data));
+                location.reload();
+            }
         } else {
-            alert(data.error || "Hata oluştu");
+            alert(data.error || "İşlem sırasında bir hata oluştu");
         }
     } catch (err) {
-        alert("Bağlantı hatası");
+        alert("Bağlantı hatası oluştu.");
     } finally {
         toggleLoader(false);
     }
