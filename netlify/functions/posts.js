@@ -2,7 +2,7 @@ const { connectToDatabase } = require("./utils/db");
 const { ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 
-const SECRET = "senin_gizli_anahtarin_buraya";
+const SECRET = process.env.JWT_SECRET
 
 exports.handler = async (event) => {
   const db = await connectToDatabase();
