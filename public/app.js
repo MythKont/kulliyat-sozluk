@@ -74,14 +74,15 @@ function updateNav() {
 
 // --- İÇERİK İŞLEMLERİ ---
 async function loadEntries() {
-    toggleLoader(true);
+    // Spinner'ı sadece ilk yüklemede gösterelim ki akıcılık bozulmasın
+    const feed = document.getElementById('feed');
+    if (feed.innerHTML === '') toggleLoader(true);
+
     try {
         const res = await fetch('/api/posts');
         const data = await res.json();
         
-        const feed = document.getElementById('feed');
-        feed.innerHTML = '';
-
+        // Dallanma Mantığı (Aynı kalıyor)
         const entryMap = {};
         data.forEach(item => { item.children = []; entryMap[item._id] = item; });
 
@@ -95,8 +96,11 @@ async function loadEntries() {
         });
 
         feed.innerHTML = roots.map(renderEntry).join('');
-    } catch (e) { console.error(e); }
-    finally { toggleLoader(false); }
+    } catch (e) {
+        console.error("Yükleme hatası:", e);
+    } finally {
+        toggleLoader(false);
+    }
 }
 
 function renderEntry(entry) {
@@ -144,18 +148,43 @@ function renderEntry(entry) {
 
 async function createTopic() {
     const titleInput = document.getElementById('topic-title');
-    const content = titleInput.value;
-    if (!content) return alert("Mesaj yazmalısın!");
+    const content = titleInput.value.trim();
+    
+    if (!content) return alert("Paylaşmak için bir şeyler yazmalısın!");
+    if (!currentUser) return alert("Önce giriş yapmalısın!");
 
     toggleLoader(true);
     try {
+        // Tasarıma uygun olması için: 
+        // Mesajın ilk kelimesini "Başlık" (#), geri kalanını "İçerik" yapıyoruz.
+        const words = content.split(' ');
+        const title = words[0].replace('#', ''); // Başındaki # işaretini temizle (biz ekleyeceğiz)
+        const actualContent = words.slice(1).join(' ') || "...";
+
         const res = await fetch('/api/posts', {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content, title: content.split(' ')[0] }) // İlk kelimeyi başlık yapar
+            headers: { 
+                'Authorization': `Bearer ${currentUser.token}`, 
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ 
+                title: title, 
+                content: actualContent 
+            })
         });
-        if (res.ok) { titleInput.value = ''; await loadEntries(); }
-    } finally { toggleLoader(false); }
+
+        if (res.ok) {
+            titleInput.value = ''; // Kutuyu temizle
+            await loadEntries();   // Akışı yenile
+        } else {
+            const err = await res.json();
+            alert(err.error || "Paylaşım yapılamadı.");
+        }
+    } catch (err) {
+        alert("Bağlantı hatası!");
+    } finally {
+        toggleLoader(false);
+    }
 }
 
 async function submitReply(parentId) {
