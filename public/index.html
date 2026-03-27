@@ -6,12 +6,15 @@
     <title>Külliyat Sözlük | Wiki-Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #121212; color: #e0e0e0; }
+        body { background-color: #121212; color: #e0e0e0; font-family: sans-serif; }
         .glass-panel { background: #1e1e1e; border: 1px solid #333; }
         .loader { border-top-color: #3b82f6; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .thread-line { border-left: 2px solid #333; margin-left: 1.25rem; padding-left: 1rem; }
-        .entry-card:hover { border-color: #444; }
+        /* Özel Kaydırma Çubuğu */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #121212; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
     </style>
 </head>
 <body class="min-h-screen">
@@ -22,73 +25,90 @@
     <nav class="glass-panel sticky top-0 z-40 p-3 mb-6">
         <div class="max-w-[1400px] mx-auto flex justify-between items-center">
             <div class="flex items-center space-x-8">
-                <h1 class="font-bold text-xl tracking-tighter">LOGO: WIKI-FANDOM</h1>
-                <div class="hidden md:flex space-x-6 text-sm font-medium text-gray-400">
-                    <a href="#" class="text-white">ANA SAYFA</a>
-                    <a href="#">KEŞFET</a>
-                    <a href="#">SOHBET</a>
+                <h1 class="font-bold text-xl tracking-tighter text-blue-500 cursor-pointer" onclick="location.reload()">KÜLLİYAT</h1>
+                <div class="hidden md:flex space-x-6 text-[10px] font-bold text-gray-400 tracking-widest">
+                    <a href="#" class="hover:text-white transition">KEŞFET</a>
+                    <a href="#" class="hover:text-white transition">GÜNDEM</a>
                 </div>
             </div>
             <div class="flex items-center space-x-4">
-                <input type="text" placeholder="Ara..." class="bg-[#2a2a2a] border border-[#444] rounded px-3 py-1 text-sm outline-none">
-                <div id="auth-buttons" class="flex space-x-2"></div>
+                <div id="auth-buttons" class="flex items-center space-x-4"></div>
             </div>
         </div>
     </nav>
 
     <div class="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-6 px-4">
-        <aside class="md:col-span-2 space-y-6">
-            <div class="space-y-4 text-gray-400 text-sm">
-                <p class="text-white font-bold flex items-center"><span class="mr-2">👥</span> TOPLULUKLAR</p>
-                <a href="#" class="block hover:text-white">📁 KATEGORİLER</a>
-                <a href="#" class="block hover:text-white">📈 TRENDLER</a>
-                <a href="#" class="block hover:text-white">🤝 ARKADAŞLAR</a>
+        
+        <aside class="md:col-span-2 space-y-4">
+            <button onclick="document.getElementById('new-topic-area').classList.toggle('hidden')" 
+                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded text-[10px] transition-all uppercase tracking-wider shadow-lg shadow-blue-900/20">
+                + YENİ KONU AÇ
+            </button>
+            
+            <div class="space-y-4 text-gray-400 text-[11px] font-bold p-2">
+                <p class="text-white flex items-center opacity-50 uppercase tracking-widest text-[9px]">MENÜ</p>
+                <a href="#" class="block hover:text-white transition flex items-center"><span class="mr-2">🏠</span> ANA SAYFA</a>
+                <a href="#" class="block hover:text-white transition flex items-center"><span class="mr-2">🔍</span> ARAŞTIR</a>
+                <a href="#" class="block hover:text-white transition flex items-center"><span class="mr-2">⭐</span> FAVORİLER</a>
             </div>
         </aside>
 
         <main class="md:col-span-7 space-y-6">
-            <div id="new-topic-area" class="hidden glass-panel p-4 rounded-lg mb-6 border border-blue-900/20">
-    <h3 class="text-[10px] font-bold text-blue-500 mb-3 tracking-widest uppercase">YENİ KONU AÇ</h3>
-    
-    <input type="text" id="topic-title" 
-           class="w-full bg-[#121212] border border-[#333] rounded p-2 mb-2 text-xs text-white outline-none focus:border-blue-500 transition-all" 
-           placeholder="Konu Başlığı (Örn: JavaScript Nedir?)">
-    
-    <textarea id="topic-content" 
-              class="w-full bg-[#121212] border border-[#333] rounded p-3 mb-3 text-xs text-gray-300 outline-none focus:border-blue-500 transition-all min-h-[100px]" 
-              placeholder="Konu içeriğini buraya detaylıca yaz..."></textarea>
-    
-    <div class="flex justify-end">
-        <button onclick="createTopic()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded text-[10px] font-bold transition-all uppercase tracking-wider">
-            KONUYU YAYINLA
-        </button>
-    </div>
-</div>
+            
+            <div id="new-topic-area" class="hidden glass-panel p-4 rounded-lg border border-blue-500/30 animate-pulse-once">
+                <h3 class="text-[10px] font-bold text-blue-500 mb-3 tracking-widest uppercase">YENİ BAŞLIK OLUŞTUR</h3>
+                <input type="text" id="topic-title" 
+                       class="w-full bg-[#0a0a0a] border border-[#333] rounded p-2 mb-2 text-xs text-white outline-none focus:border-blue-500" 
+                       placeholder="Konu Başlığı...">
+                <textarea id="topic-content" 
+                          class="w-full bg-[#0a0a0a] border border-[#333] rounded p-3 mb-3 text-xs text-gray-300 outline-none focus:border-blue-500 min-h-[100px]" 
+                          placeholder="İlk entry'i buraya yaz..."></textarea>
+                <div class="flex justify-end">
+                    <button onclick="createTopic()" class="bg-blue-600 text-white px-6 py-2 rounded text-[10px] font-bold uppercase">YAYINLA</button>
+                </div>
+            </div>
 
-            <p class="text-xs font-bold text-gray-500">SON GÖNDERİLER VE TARTIŞMALAR</p>
-            <div id="feed" class="space-y-4"></div>
+            <div id="active-topic-header" class="border-b border-white/5 pb-4">
+                <h1 id="topic-title-display" class="text-2xl md:text-3xl font-black text-white uppercase tracking-tighter">
+                    Hoş Geldin, Bir Konu Seç!
+                </h1>
+            </div>
+
+            <div id="feed" class="space-y-4 min-h-[400px]">
+                <p class="text-gray-600 text-xs italic mt-10 text-center">Sağ taraftaki başlıklardan birine tıklayarak okumaya başla.</p>
+            </div>
+
+            <div id="reply-area" class="hidden glass-panel p-4 rounded-lg mt-10 border-t-2 border-blue-600">
+                <p class="text-[9px] font-bold text-blue-500 mb-2 uppercase tracking-widest">Senin Entry'n</p>
+                <textarea id="main-reply-input" 
+                          class="w-full bg-black/50 border border-[#333] rounded p-3 text-xs text-gray-300 outline-none focus:border-blue-500 min-h-[120px]" 
+                          placeholder="Düşüncelerini buraya aktar..."></textarea>
+                <div class="flex justify-end mt-2">
+                    <button onclick="submitMainReply()" class="bg-blue-600 hover:bg-blue-500 text-white px-10 py-2 rounded text-[10px] font-bold uppercase transition-all">
+                        GÖNDER
+                    </button>
+                </div>
+            </div>
         </main>
 
-        <aside class="md:col-span-3 space-y-6 text-xs">
-            <div class="glass-panel p-4 rounded-lg">
-                <p class="font-bold mb-4">GÜNCEL KONULAR</p>
-                <div class="space-y-3 text-gray-400">
-                    <p class="hover:text-white cursor-pointer">#Konu Başlığı 1 <span class="text-gray-600">(123)</span></p>
-                    <p class="hover:text-white cursor-pointer">#Konu 2 <span class="text-gray-600">(89)</span></p>
-                    <p class="hover:text-white cursor-pointer">#Haber 3 <span class="text-gray-600">(67)</span></p>
+        <aside class="md:col-span-3 space-y-6">
+            <div class="glass-panel p-4 rounded-lg sticky top-20">
+                <p class="font-bold text-[10px] text-blue-500 tracking-widest mb-4 uppercase border-b border-white/5 pb-2">GÜNDEM</p>
+                <div id="trend-list" class="space-y-3">
+                    <p class="text-[10px] text-gray-600 animate-pulse">Konular yükleniyor...</p>
                 </div>
             </div>
         </aside>
     </div>
 
-    <div id="auth-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center">
-        <div class="glass-panel p-8 rounded-xl w-96">
-            <h2 id="modal-title" class="text-xl font-bold mb-4">Giriş Yap</h2>
-            <input id="auth-user" type="text" placeholder="Kullanıcı Adı" class="w-full bg-[#2a2a2a] border border-[#444] p-2 mb-3 rounded outline-none">
-            <input id="auth-pass" type="password" placeholder="Şifre" class="w-full bg-[#2a2a2a] border border-[#444] p-2 mb-6 rounded outline-none">
-            <div class="flex justify-between">
-                <button onclick="document.getElementById('auth-modal').classList.add('hidden')" class="text-gray-500">İptal</button>
-                <button id="auth-submit-btn" class="bg-blue-600 px-6 py-2 rounded font-bold">Tamam</button>
+    <div id="auth-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel p-8 rounded-xl w-full max-w-md">
+            <h2 id="modal-title" class="text-xl font-bold mb-6 text-blue-500 uppercase tracking-tighter">Giriş Yap</h2>
+            <div class="space-y-4">
+                <input id="auth-user" type="text" placeholder="Kullanıcı Adı" class="w-full bg-[#121212] border border-[#333] p-3 rounded text-sm outline-none focus:border-blue-500">
+                <input id="auth-pass" type="password" placeholder="Şifre" class="w-full bg-[#121212] border border-[#333] p-3 rounded text-sm outline-none focus:border-blue-500">
+                <button id="auth-submit-btn" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded font-bold text-sm transition-all uppercase tracking-widest">Devam Et</button>
+                <button onclick="document.getElementById('auth-modal').classList.add('hidden')" class="w-full text-gray-500 text-xs">Vazgeç</button>
             </div>
         </div>
     </div>

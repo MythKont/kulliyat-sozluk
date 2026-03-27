@@ -2,30 +2,79 @@ let currentUser = JSON.parse(localStorage.getItem("user")) || null;
 let lastCheckTime = Date.now();
 let newPostsCount = 0;
 let selectedTopicId = null;
+let currentTopicId = null;
+let currentTopicTitle = "";
 
-// SAĞ SÜTUN: Konu Başlıklarını Yükle
+// 1. Sağ Taraftaki Trendleri Yükle (Yorum sayısına göre)
 async function loadTrends() {
-    // index.html'deki sağ sütun div'inin içindeki listeyi hedef alıyoruz
-    const trendList = document.querySelector('.space-y-4.mt-4'); 
-    if (!trendList) return;
-
     try {
         const res = await fetch('/api/posts?trend=true');
         const data = await res.json();
+        const trendList = document.getElementById('trend-list');
 
-        trendList.innerHTML = data.map(item => `
-            <div onclick="openTopic('${item._id}')" 
-                 class="group cursor-pointer border-b border-white/5 pb-3 pt-2 px-2 hover:bg-blue-600/10 rounded transition-all">
-                <h4 class="text-[10px] font-bold text-gray-300 group-hover:text-blue-400 uppercase tracking-tight">
-                    # ${item.title}
-                </h4>
-                <div class="flex items-center justify-between mt-1 text-[8px] text-gray-600 font-mono">
-                    <span>${item.upvotes || 0} PUAN</span>
-                    <span class="text-blue-900">@${item.username}</span>
+        trendList.innerHTML = data.map(topic => `
+            <div onclick="openTopic('${topic._id}', '${topic.title}')" 
+                 class="group cursor-pointer border-b border-white/5 pb-2 hover:bg-white/5 p-2 rounded transition-all">
+                <h4 class="text-[11px] font-bold text-gray-300 group-hover:text-blue-400 uppercase"># ${topic.title}</h4>
+                <div class="flex justify-between mt-1 text-[9px] text-gray-600">
+                    <span>${topic.replyCount || 0} entry</span>
+                    <span>@${topic.username}</span>
                 </div>
             </div>
         `).join('');
-    } catch (e) { console.log("Trendler yüklenemedi"); }
+    } catch (e) { console.log("Trend hatası"); }
+}
+
+// 2. Konuyu Aç (Orta Alanı Güncelle)
+async function openTopic(id, title) {
+    currentTopicId = id;
+    currentTopicTitle = title;
+    
+    // Başlığı Güncelle
+    document.getElementById('topic-title-display').innerText = `# ${title}`;
+    // Yorum kutusunu göster
+    document.getElementById('reply-area').classList.remove('hidden');
+    
+    const feed = document.getElementById('feed');
+    feed.innerHTML = '';
+    toggleLoader(true);
+
+    try {
+        const res = await fetch(`/api/posts?topicId=${id}`);
+        const data = await res.json();
+        
+        // Sadece yorumları (entryleri) göster (Ana konuyu hariç tutabilirsin)
+        const entries = data.filter(item => item._id !== id);
+        
+        feed.innerHTML = entries.length > 0 
+            ? entries.map(renderEntry).join('') 
+            : `<p class="text-gray-600 text-[10px] text-center mt-10 italic">Henüz bu konuya yorum yapılmamış. İlk sen yaz!</p>`;
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally { toggleLoader(false); }
+}
+
+// 3. Konuya Yorum At (Başlık Yazma Yeri Olmadan!)
+async function submitMainReply() {
+    const input = document.getElementById('main-reply-input');
+    const content = input.value.trim();
+    
+    if (!content || !currentTopicId) return;
+    if (!currentUser) return alert("Giriş yapmalıs itsin!");
+
+    try {
+        const res = await fetch('/api/posts', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content, parentId: currentTopicId }) // Konuya bağla
+        });
+
+        if (res.ok) {
+            input.value = '';
+            openTopic(currentTopicId, currentTopicTitle); // Sayfayı güncelle
+            loadTrends(); // Yorum sayısı arttığı için trendleri de güncelle
+        }
+    } catch (e) { alert("Hata oluştu."); }
 }
 
 // ORTA ALAN: Tıklanan Konuyu ve Yanıtları Getir

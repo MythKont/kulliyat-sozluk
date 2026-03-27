@@ -79,4 +79,19 @@ exports.handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: "Oturum hatası" }) };
         }
     }
-};
+};  
+// posts.js içindeki Trend kısmına şunu ekleyebilirsin
+if (isTrend) {
+    const topics = await posts.find({ parentId: null }).toArray();
+    
+    // Her konu için yorum sayısını bul ve ekle
+    const dataWithCounts = await Promise.all(topics.map(async (t) => {
+        const count = await posts.countDocuments({ parentId: t._id.toString() });
+        return { ...t, replyCount: count };
+    }));
+
+    // Yorum sayısına göre büyükten küçüğe sırala
+    dataWithCounts.sort((a, b) => b.replyCount - a.replyCount);
+    
+    return { statusCode: 200, body: JSON.stringify(dataWithCounts.slice(0, 15)) };
+}
