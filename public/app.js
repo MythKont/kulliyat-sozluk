@@ -5,53 +5,145 @@ let selectedTopicId = null;
 let currentTopicId = null;
 let currentTopicTitle = "";
 
-// 1. Sağ Taraftaki Trendleri Yükle (Yorum sayısına göre)
 async function loadTrends() {
+    const trendList = document.getElementById('trend-list');
+    if (!trendList) return; // Element yoksa hata vermemesi için
+
     try {
         const res = await fetch('/api/posts?trend=true');
         const data = await res.json();
-        const trendList = document.getElementById('trend-list');
 
-        trendList.innerHTML = data.map(topic => `
-            <div onclick="openTopic('${topic._id}', '${topic.title}')" 
-                 class="group cursor-pointer border-b border-white/5 pb-2 hover:bg-white/5 p-2 rounded transition-all">
-                <h4 class="text-[11px] font-bold text-gray-300 group-hover:text-blue-400 uppercase"># ${topic.title}</h4>
-                <div class="flex justify-between mt-1 text-[9px] text-gray-600">
-                    <span>${topic.replyCount || 0} entry</span>
-                    <span>@${topic.username}</span>
+        // Veri liste değilse (hata mesajı geldiyse) durdur
+        if (!Array.isArray(data)) {
+            console.error("Gelen veri liste değil:", data);
+            return;
+        }
+
+        trendList.innerHTML = data.map(item => `
+            <div onclick="openTopic('${item._id}', '${item.title}')" 
+                 class="group cursor-pointer border-b border-white/5 pb-3 pt-2 px-2 hover:bg-white/5 rounded transition-all">
+                <h4 class="text-[11px] font-bold text-gray-300 group-hover:text-blue-400 uppercase tracking-tighter">
+                    # ${item.title}
+                </h4>
+                <div class="flex items-center justify-between mt-1 text-[9px] text-gray-600 font-mono">
+                    <span>${item.entryCount || item.replyCount || 0} ENTRY</span>
+                    <span class="text-blue-900">@${item.username}</span>
                 </div>
             </div>
         `).join('');
-    } catch (e) { console.log("Trend hatası"); }
+    } catch (e) { 
+        console.error("Trend yüklenemedi", e); 
+    }
 }
 
-// 2. Konuyu Aç (Orta Alanı Güncelle)
-async function openTopic(id, title) {
-    currentTopicId = id;
-    currentTopicTitle = title;
-    
-    // Başlığı Güncelle
-    document.getElementById('topic-title-display').innerText = `# ${title}`;
-    // Yorum kutusunu göster
-    document.getElementById('reply-area').classList.remove('hidden');
-    
+async function openTopic(topicId, title) {
+    // 1. Global değişkenleri güncelle (Hangi konudayız bilelim)
+    currentTopicId = topicId;
+    currentTopicTitle = title || "Başlıksız Konu";
+
+    // 2. HTML elementlerini yakala
+    const topicHeader = document.getElementById('topic-title-display');
+    const entryArea = document.getElementById('entry-submission-area');
     const feed = document.getElementById('feed');
-    feed.innerHTML = '';
+
+    // 3. Görsel hazırlık: Başlığı yaz ve Entry kutusunu aç
+    if (topicHeader) topicHeader.innerText = `# ${currentTopicTitle}`;
+    if (entryArea) entryArea.classList.remove('hidden');
+    
+    feed.innerHTML = ''; // Eski konuyu temizle
     toggleLoader(true);
 
     try {
-        const res = await fetch(`/api/posts?topicId=${id}`);
+        // 4. Backend'den sadece bu konunun entry'lerini getir
+        const res = await fetch(`/api/posts?topicId=${topicId}`);
         const data = await res.json();
-        
-        // Sadece yorumları (entryleri) göster (Ana konuyu hariç tutabilirsin)
-        const entries = data.filter(item => item._id !== id);
-        
-        feed.innerHTML = entries.length > 0 
-            ? entries.map(renderEntry).join('') 
-            : `<p class="text-gray-600 text-[10px] text-center mt-10 italic">Henüz bu konuya yorum yapılmamış. İlk sen yaz!</p>`;
 
+        if (Array.isArray(data) && data.length > 0) {
+            // Dallanma (Thread) mantığını koruyarak render et
+            const entryMap = {};
+            data.forEach(item => { item.children = []; entryMap[item._id] = item; });
+            const roots = [];
+            data.forEach(item => {
+                if (item.parentId && entryMap[item.parentId] && item.parentId !== topicId) {
+                    entryMap[item.parentId].children.push(item);
+                } else {
+                    roots.push(item);
+                }
+            });
+            feed.innerHTML = roots.map(renderEntry).join('');
+        } else {
+            feed.innerHTML = `<p class="text-gray-600 text-[10px] text-center mt-10 italic">Bu başlık henüz boş, ilk entry'i sen gir!</p>`;
+        }
+
+        // 5. Sayfayı en üste yumuşakça kaydır
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    } finally { toggleLoader(false); }
+
+    } catch (e) {
+        console.error("Konu yükleme hatası:", e);
+        feed.innerHTML = `<p class="text-red-500 text-xs text-center mt-10">Konu yüklenirken bir hata oluştu.</p>`;
+    } finally {
+        toggleLoader(false);
+    }
+}
+
+// 2. KONU AÇMA (BURADA KONU AÇILINCA DİREKT İÇİNE GİRİYORUZ)
+async function createTopic() {
+    const titleInput = document.getElementById('topic-title');
+    const contentInput = document.getElementById('topic-content');
+    
+    const title = titleInput.value.trim();
+    const content = contentInput.value.trim();
+    
+    if (!title || !content) return alert("Başlık ve ilk entry boş olamaz!");
+    if (!currentUser) return alert("Giriş yapmalısın!");
+
+    toggleLoader(true);
+    try {
+        const res = await fetch('/api/posts', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, content, parentId: null })
+        });
+
+        if (res.ok) {
+            const result = await res.json();
+            titleInput.value = '';
+            contentInput.value = '';
+            // PANALİ KAPAT
+            document.getElementById('new-topic-area').classList.add('hidden');
+            
+            // YENİ AÇILAN KONUYA GİT
+            await loadTrends();
+            openTopic(result.topicId, title); 
+        }
+    } catch (err) { alert("Bağlantı hatası!"); }
+    finally { toggleLoader(false); }
+}
+
+// 4. KONUYA ENTRY GİR (SADECE MESAJ)
+async function submitEntryToTopic() {
+    const input = document.getElementById('main-entry-input');
+    const content = input.value.trim();
+    
+    if (!content || !currentTopicId) return alert("Boş entry girilemez!");
+    if (!currentUser) return alert("Önce giriş yapmalısın!");
+
+    toggleLoader(true);
+    try {
+        const res = await fetch('/api/posts', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content, parentId: currentTopicId })
+        });
+
+        if (res.ok) {
+            input.value = '';
+            // Konuyu yenile
+            openTopic(currentTopicId, currentTopicTitle);
+            loadTrends(); // Sayı güncellensin
+        }
+    } catch (e) { alert("Gönderilemedi."); }
+    finally { toggleLoader(false); }
 }
 
 // 3. Konuya Yorum At (Başlık Yazma Yeri Olmadan!)
@@ -75,49 +167,6 @@ async function submitMainReply() {
             loadTrends(); // Yorum sayısı arttığı için trendleri de güncelle
         }
     } catch (e) { alert("Hata oluştu."); }
-}
-
-// ORTA ALAN: Tıklanan Konuyu ve Yanıtları Getir
-async function openTopic(topicId) {
-    selectedTopicId = topicId;
-    const feed = document.getElementById('feed');
-    
-    // Orta alanı temizle ve yükleniyor göster
-    feed.innerHTML = ''; 
-    toggleLoader(true);
-
-    try {
-        const res = await fetch(`/api/posts?topicId=${topicId}`);
-        const data = await res.json();
-
-        if (!Array.isArray(data) || data.length === 0) {
-            feed.innerHTML = "<p class='text-center text-gray-500 text-xs mt-10'>Konu içeriği yüklenemedi.</p>";
-            return;
-        }
-
-        // Dallanma Mantığı (Aynı kalıyor)
-        const entryMap = {};
-        data.forEach(item => { item.children = []; entryMap[item._id] = item; });
-        const roots = [];
-        data.forEach(item => {
-            if (item.parentId && entryMap[item.parentId]) {
-                entryMap[item.parentId].children.push(item);
-            } else {
-                roots.push(item);
-            }
-        });
-
-        // Konu başlığını ve altındaki tüm akışı render et
-        feed.innerHTML = roots.map(renderEntry).join('');
-        
-        // Şık bir geçiş için yukarı kaydır
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-
-    } catch (e) {
-        console.error("Yükleme hatası:", e);
-    } finally {
-        toggleLoader(false);
-    }
 }
 
 // SAYFA İLK AÇILDIĞINDA
