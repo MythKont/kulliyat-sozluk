@@ -174,41 +174,49 @@ function renderEntry(entry) {
     const hasChildren = entry.children && entry.children.length > 0;
 
     return `
-        <div class="glass-panel p-4 rounded-lg entry-card transition-all mb-2">
+        <div class="glass-panel p-4 rounded-lg entry-card transition-all mb-2 border border-white/5">
             <div class="flex items-center space-x-3 mb-3">
-                <div class="w-8 h-8 rounded-full bg-gray-800 border border-gray-700"></div>
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 border border-white/10 flex items-center justify-center text-[10px] font-bold text-white uppercase">
+                    ${entry.username.substring(0, 1)}
+                </div>
                 <div class="text-[11px]">
-                    <span class="text-white font-bold">@${entry.username}</span>
+                    <span class="text-white font-bold cursor-pointer hover:text-blue-400 transition">@${entry.username}</span>
                     <span class="text-gray-500 ml-2">• ${dateStr}</span>
                 </div>
             </div>
             
-            <p class="text-sm text-gray-300 leading-relaxed mb-4">
-                ${entry.content}
-            </p>
+            <div class="mb-4">
+                ${entry.title ? `<h2 class="text-blue-400 font-bold text-base mb-2 tracking-tight"># ${entry.title}</h2>` : ''}
+                <p class="text-sm text-gray-300 leading-relaxed font-light">
+                    ${entry.content}
+                </p>
+            </div>
             
-            <div class="flex items-center space-x-6 text-[10px] font-bold text-gray-500">
-                <div class="flex items-center space-x-2 bg-[#2a2a2a] rounded px-2 py-1">
-                    <button onclick="castVote('${entry._id}', 'up')" class="hover:text-white transition">▲</button>
-                    <span class="text-gray-300">${(entry.upvotes || 0) - (entry.downvotes || 0)}</span>
-                    <button onclick="castVote('${entry._id}', 'down')" class="hover:text-white transition">▼</button>
+            <div class="flex items-center space-x-6 text-[10px] font-bold text-gray-500 border-t border-white/5 pt-3">
+                <div class="flex items-center space-x-2 bg-white/5 rounded-md px-2 py-1 border border-white/5">
+                    <button onclick="castVote('${entry._id}', 'up')" class="hover:text-green-500 transition-colors">▲</button>
+                    <span class="text-gray-300 min-w-[12px] text-center">${(entry.upvotes || 0) - (entry.downvotes || 0)}</span>
+                    <button onclick="castVote('${entry._id}', 'down')" class="hover:text-red-500 transition-colors">▼</button>
                 </div>
                 
-                <button onclick="showReplyBox('${entry._id}')" class="hover:text-white flex items-center">
-                    <span class="mr-1">💬</span> YANITLA
+                <button onclick="showReplyBox('${entry._id}')" class="hover:text-white flex items-center transition-colors">
+                    <span class="mr-1 text-xs text-blue-500">💬</span> YANITLA
                 </button>
 
                 ${hasChildren ? `
-                    <button onclick="toggleThreads('${entry._id}')" id="btn-thread-${entry._id}" class="text-blue-500 hover:text-blue-400 flex items-center">
-                        <span class="mr-1">▶</span> ${entry.children.length} yanıtı gör
+                    <button onclick="toggleThreads('${entry._id}')" id="btn-thread-${entry._id}" class="text-blue-500/80 hover:text-blue-400 flex items-center transition-colors">
+                        <span class="mr-1">▶</span> ${entry.children.length} YANIT
                     </button>
                 ` : ''}
             </div>
             
-            <div id="reply-${entry._id}" class="hidden mt-4 pt-4 border-t border-[#333]">
-                <textarea id="input-${entry._id}" class="w-full bg-[#121212] border border-[#444] rounded p-2 text-xs outline-none" placeholder="Yanıtını yaz..."></textarea>
-                <div class="flex justify-end mt-2">
-                    <button onclick="submitReply('${entry._id}')" class="bg-blue-600 text-white px-4 py-1 rounded text-[10px]">GÖNDER</button>
+            <div id="reply-${entry._id}" class="hidden mt-4 pt-4 border-t border-white/5 animate-fade-in">
+                <textarea id="input-${entry._id}" 
+                    class="w-full bg-black/40 border border-[#333] rounded p-3 text-xs text-gray-200 outline-none focus:border-blue-500/50 transition-all min-h-[80px]" 
+                    placeholder="Düşüncelerini paylaş..."></textarea>
+                <div class="flex justify-end mt-2 space-x-2">
+                    <button onclick="showReplyBox('${entry._id}')" class="text-[9px] text-gray-500 px-3 uppercase">Vazgeç</button>
+                    <button onclick="submitReply('${entry._id}')" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-1.5 rounded-full text-[10px] shadow-lg shadow-blue-600/20 transition-all uppercase tracking-tighter">Gönder</button>
                 </div>
             </div>
 
@@ -239,19 +247,16 @@ function toggleThreads(id) {
 
 async function createTopic() {
     const titleInput = document.getElementById('topic-title');
-    const content = titleInput.value.trim();
+    const contentInput = document.getElementById('topic-content');
     
-    if (!content) return alert("Paylaşmak için bir şeyler yazmalısın!");
+    const title = titleInput.value.trim();
+    const content = contentInput.value.trim();
+    
+    if (!title || !content) return alert("Başlık ve içerik alanlarını doldurmalısın!");
     if (!currentUser) return alert("Önce giriş yapmalısın!");
 
     toggleLoader(true);
     try {
-        // Tasarıma uygun olması için: 
-        // Mesajın ilk kelimesini "Başlık" (#), geri kalanını "İçerik" yapıyoruz.
-        const words = content.split(' ');
-        const title = words[0].replace('#', ''); // Başındaki # işaretini temizle (biz ekleyeceğiz)
-        const actualContent = words.slice(1).join(' ') || "...";
-
         const res = await fetch('/api/posts', {
             method: 'POST',
             headers: { 
@@ -260,13 +265,15 @@ async function createTopic() {
             },
             body: JSON.stringify({ 
                 title: title, 
-                content: actualContent 
+                content: content 
+                // parentId gönderilmediği için otomatik olarak "Ana Konu" olacak
             })
         });
 
         if (res.ok) {
-            titleInput.value = ''; // Kutuyu temizle
-            await loadEntries();   // Akışı yenile
+            titleInput.value = ''; 
+            contentInput.value = '';
+            await loadEntries();   
         } else {
             const err = await res.json();
             alert(err.error || "Paylaşım yapılamadı.");

@@ -47,16 +47,23 @@
         </aside>
 
         <main class="md:col-span-7 space-y-6">
-            <div id="new-topic-area" class="glass-panel p-4 rounded-lg hidden">
-                <p class="text-xs font-bold mb-3">YENİ GÖNDERİ PAYLAŞ</p>
-                <div class="flex space-x-4">
-                    <div class="w-12 h-12 rounded bg-gray-700 flex items-center justify-center text-xs">Edit</div>
-                    <textarea id="topic-title" placeholder="Ne düşünüyorsun? #Konu #Wiki..." class="w-full bg-[#2a2a2a] border border-[#444] rounded p-2 text-sm outline-none resize-none h-20"></textarea>
-                </div>
-                <div class="flex justify-end mt-3 space-x-2">
-                    <button onclick="createTopic()" class="bg-white text-black px-6 py-1.5 rounded font-bold text-xs hover:bg-gray-200">GÖNDER</button>
-                </div>
-            </div>
+            <div id="new-topic-area" class="hidden glass-panel p-4 rounded-lg mb-6 border border-blue-900/20">
+    <h3 class="text-[10px] font-bold text-blue-500 mb-3 tracking-widest uppercase">YENİ KONU AÇ</h3>
+    
+    <input type="text" id="topic-title" 
+           class="w-full bg-[#121212] border border-[#333] rounded p-2 mb-2 text-xs text-white outline-none focus:border-blue-500 transition-all" 
+           placeholder="Konu Başlığı (Örn: JavaScript Nedir?)">
+    
+    <textarea id="topic-content" 
+              class="w-full bg-[#121212] border border-[#333] rounded p-3 mb-3 text-xs text-gray-300 outline-none focus:border-blue-500 transition-all min-h-[100px]" 
+              placeholder="Konu içeriğini buraya detaylıca yaz..."></textarea>
+    
+    <div class="flex justify-end">
+        <button onclick="createTopic()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded text-[10px] font-bold transition-all uppercase tracking-wider">
+            KONUYU YAYINLA
+        </button>
+    </div>
+</div>
 
             <p class="text-xs font-bold text-gray-500">SON GÖNDERİLER VE TARTIŞMALAR</p>
             <div id="feed" class="space-y-4"></div>
