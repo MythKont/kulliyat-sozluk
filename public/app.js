@@ -321,3 +321,32 @@ async function castVote(entryId, type) {
 // Başlat
 updateNav();
 loadEntries();
+
+async function loadTrends() {
+    const trendList = document.querySelector('.space-y-4.mt-4'); // index.html'deki trend alanı
+    if (!trendList) return;
+
+    try {
+        const res = await fetch('/api/posts?trend=true');
+        const data = await res.json();
+
+        if (data.length > 0) {
+            trendList.innerHTML = data.map(item => `
+                <div class="group cursor-pointer border-b border-white/5 pb-2 hover:border-blue-500/30 transition-all">
+                    <h4 class="text-[11px] font-bold text-gray-300 group-hover:text-blue-400"># ${item.title || 'Başlıksız'}</h4>
+                    <div class="flex items-center space-x-2 mt-1">
+                        <span class="text-[9px] text-gray-600">${item.upvotes || 0} beğeni</span>
+                        <span class="text-[9px] text-gray-600">•</span>
+                        <span class="text-[9px] text-gray-600">@${item.username}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (e) {
+        console.error("Trend yükleme hatası");
+    }
+}
+
+// app.js'in en altında loadEntries()'in yanına ekle:
+loadEntries();
+loadTrends(); // Sayfa açılınca trendleri de yükle

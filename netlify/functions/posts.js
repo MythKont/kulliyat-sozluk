@@ -14,27 +14,33 @@ exports.handler = async (event) => {
     }
     const posts = db.collection("entries");
 
-    // --- GET İSTEĞİ (Yazıları Listeleme) ---
-    if (event.httpMethod === "GET") {
-        try {
-            const since = event.queryStringParameters ? event.queryStringParameters.since : null;
-            let query = {};
-            
-            // Zaman filtresi varsa uygula
-            if (since && since !== "undefined" && !isNaN(since)) {
-                query = { createdAt: { $gt: new Date(parseInt(since)) } };
-            }
+if (event.httpMethod === "GET") {
+    try {
+        const params = event.queryStringParameters || {};
+        const isTrend = params.trend === "true";
+        const since = params.since;
 
-            const data = await posts.find(query).sort({ createdAt: -1 }).toArray();
-            return { 
-                statusCode: 200, 
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data) // Her zaman array döner
-            };
-        } catch (err) {
-            return { statusCode: 500, body: JSON.stringify({ error: "Veri çekme hatası" }) };
+        let query = {};
+        if (since && since !== "undefined" && !isNaN(since)) {
+            query = { createdAt: { $gt: new Date(parseInt(since)) } };
         }
+
+        // Eğer trend isteniyorsa: Sadece ana konuları (parentId: null) 
+        // ve en yüksek oylu 5 tanesini getir.
+        if (isTrend) {
+            const trendData = await posts.find({ parentId: null })
+                .sort({ upvotes: -1, createdAt: -1 })
+                .limit(5)
+                .toArray();
+            return { statusCode: 200, body: JSON.stringify(trendData) };
+        }
+
+        const data = await posts.find(query).sort({ createdAt: -1 }).toArray();
+        return { statusCode: 200, body: JSON.stringify(data) };
+    } catch (err) {
+        return { statusCode: 500, body: JSON.stringify({ error: "Hata" }) };
     }
+}
 
     // --- POST İSTEĞİ (Yeni Yazı Paylaşma) ---
     if (event.httpMethod === "POST") {
