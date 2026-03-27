@@ -281,9 +281,9 @@ function updateNav() {
     if (currentUser) {
         nav.innerHTML = `
             <span class="text-xs text-gray-400 flex items-center">@${currentUser.username}</span>
-            <button onclick="logout()" class="text-xs bg-red-900/30 text-red-500 px-3 py-1 rounded">ÇIKIŞ</button>
+            <button onclick="logout()" class="text-xs bg-red-900/30 text-red-500 px-3 py-1 rounded ml-2">ÇIKIŞ</button>
         `;
-        document.getElementById('new-topic-area').classList.remove('hidden');
+        // BURADAKİ classList.remove('hidden') SATIRINI SİLDİK!
     } else {
         nav.innerHTML = `
             <button onclick="showAuthModal('login')" class="text-xs font-bold px-3 py-1">GİRİŞ YAP</button>
@@ -563,18 +563,6 @@ async function submitEntryToTopic() {
     } catch (e) { alert("Entry gönderilemedi."); }
 }
 
-// Paneli açıp kapatan fonksiyon
-function toggleNewTopicArea() {
-    const area = document.getElementById('new-topic-area');
-    if (area) {
-        area.classList.toggle('hidden');
-        // Panel açıldığında başlık inputuna odaklan (Şık bir dokunuş)
-        if (!area.classList.contains('hidden')) {
-            document.getElementById('topic-title').focus();
-        }
-    }
-}
-
 // createTopic fonksiyonunun içine (başarılı olduğu kısma) şunu da ekle:
 // res.ok olduğunda paneli tekrar kapatalım
 if (res.ok) {
@@ -592,10 +580,24 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Senin o meşhur butona basınca açılması için bu fonksiyon kalsın:
+// Sayfa yüklendiğinde yapılacaklar
+window.onload = () => {
+    updateNav();
+    loadTrends();
+    loadEntries();
+    
+    // Sayfa açılışında panelin kapalı olduğundan emin olalım
+    const area = document.getElementById('new-topic-area');
+    if (area) area.classList.add('hidden');
+};
+
+// Paneli açıp kapatan TEK fonksiyon
 function toggleNewTopicArea() {
     const area = document.getElementById('new-topic-area');
     if (area) {
         area.classList.toggle('hidden');
+        if (!area.classList.contains('hidden')) {
+            document.getElementById('topic-title').focus();
+        }
     }
 }
