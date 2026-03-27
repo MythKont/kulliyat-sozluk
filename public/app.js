@@ -562,3 +562,23 @@ async function submitEntryToTopic() {
         }
     } catch (e) { alert("Entry gönderilemedi."); }
 }
+
+// Paneli açıp kapatan fonksiyon
+function toggleNewTopicArea() {
+    const area = document.getElementById('new-topic-area');
+    if (area) {
+        area.classList.toggle('hidden');
+        // Panel açıldığında başlık inputuna odaklan (Şık bir dokunuş)
+        if (!area.classList.contains('hidden')) {
+            document.getElementById('topic-title').focus();
+        }
+    }
+}
+
+// createTopic fonksiyonunun içine (başarılı olduğu kısma) şunu da ekle:
+// res.ok olduğunda paneli tekrar kapatalım
+if (res.ok) {
+    // ... diğer kodların ...
+    document.getElementById('new-topic-area').classList.add('hidden');
+    // ...
+}
