@@ -1,28 +1,32 @@
 let currentUser = JSON.parse(localStorage.getItem("user")) || null;
 
-// Spinner Kontrolü
+// --- YARDIMCI FONKSİYONLAR ---
 const toggleLoader = (show) => {
     document.getElementById('loading').classList.toggle('hidden', !show);
 };
 
-// Navigasyonu Güncelle
-function updateNav() {
-    const nav = document.getElementById('auth-buttons');
-    if (currentUser) {
-        nav.innerHTML = `
-            <span class="mr-4 font-medium">Selam, ${currentUser.username}</span>
-            <button onclick="logout()" class="text-red-500 text-sm">Çıkış</button>
-        `;
-        document.getElementById('new-topic-area').classList.remove('hidden');
-    } else {
-        nav.innerHTML = `
-            <button onclick="showAuthModal('login')" class="mr-4 text-blue-600">Giriş</button>
-            <button onclick="showAuthModal('register')" class="bg-blue-600 text-white px-4 py-1 rounded">Kayıt Ol</button>
-        `;
-    }
+function logout() {
+    localStorage.removeItem("user");
+    location.reload();
 }
 
+function showAuthModal(mode) {
+    const modal = document.getElementById('auth-modal');
+    const title = document.getElementById('modal-title');
+    const btn = document.getElementById('auth-submit-btn');
+    
+    modal.classList.remove('hidden');
+    title.innerText = mode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
+    btn.onclick = () => {
+        const u = document.getElementById('auth-user').value;
+        const p = document.getElementById('auth-pass').value;
+        handleAuth(mode, u, p);
+    };
+}
+
+// --- AUTH İŞLEMLERİ ---
 async function handleAuth(action, username, password) {
+    if(!username || !password) return alert("Alanları doldur!");
     toggleLoader(true);
     try {
         const res = await fetch('/api/auth', {
@@ -33,67 +37,92 @@ async function handleAuth(action, username, password) {
         
         if (data.token) {
             localStorage.setItem("user", JSON.stringify(data));
-            currentUser = data;
-            location.reload(); // Basitlik için sayfayı yeniliyoruz
+            location.reload();
         } else {
-            alert(data.error || data.message);
+            alert(data.error || "Hata oluştu");
         }
     } catch (err) {
-        alert("Bir hata oluştu.");
+        alert("Bağlantı hatası");
     } finally {
         toggleLoader(false);
     }
 }
 
-updateNav();
+function updateNav() {
+    const nav = document.getElementById('auth-buttons');
+    if (currentUser) {
+        nav.innerHTML = `
+            <span class="text-xs text-gray-400 flex items-center">@${currentUser.username}</span>
+            <button onclick="logout()" class="text-xs bg-red-900/30 text-red-500 px-3 py-1 rounded">ÇIKIŞ</button>
+        `;
+        document.getElementById('new-topic-area').classList.remove('hidden');
+    } else {
+        nav.innerHTML = `
+            <button onclick="showAuthModal('login')" class="text-xs font-bold px-3 py-1">GİRİŞ YAP</button>
+            <button onclick="showAuthModal('register')" class="text-xs font-bold bg-white text-black px-3 py-1 rounded">KAYIT OL</button>
+        `;
+    }
+}
 
+// --- İÇERİK İŞLEMLERİ ---
 async function loadEntries() {
     toggleLoader(true);
-    const res = await fetch('/api/posts');
-    const data = await res.json();
-    toggleLoader(false);
+    try {
+        const res = await fetch('/api/posts');
+        const data = await res.json();
+        
+        const feed = document.getElementById('feed');
+        feed.innerHTML = '';
 
-    const feed = document.getElementById('feed');
-    feed.innerHTML = '';
+        const entryMap = {};
+        data.forEach(item => { item.children = []; entryMap[item._id] = item; });
 
-    // Veriyi ağaç yapısına çevir (Dallanma mantığı)
-    const entryMap = {};
-    data.forEach(item => {
-        item.children = [];
-        entryMap[item._id] = item;
-    });
+        const roots = [];
+        data.forEach(item => {
+            if (item.parentId && entryMap[item.parentId]) {
+                entryMap[item.parentId].children.push(item);
+            } else {
+                roots.push(item);
+            }
+        });
 
-    const roots = [];
-    data.forEach(item => {
-        if (item.parentId && entryMap[item.parentId]) {
-            entryMap[item.parentId].children.push(item);
-        } else {
-            roots.push(item);
-        }
-    });
-
-    // Ekrana bas
-    feed.innerHTML = roots.map(renderEntry).join('');
+        feed.innerHTML = roots.map(renderEntry).join('');
+    } catch (e) { console.error(e); }
+    finally { toggleLoader(false); }
 }
 
 function renderEntry(entry) {
+    const dateStr = new Date(entry.createdAt).toLocaleDateString('tr-TR');
     return `
-        <div class="bg-white p-4 rounded-lg shadow-sm border mb-4">
-            <div class="flex justify-between text-xs text-gray-500 mb-2">
-                <span class="font-bold text-blue-500">@${entry.username}</span>
-                <span>${new Date(entry.createdAt).toLocaleString('tr-TR')}</span>
-            </div>
-            <p class="text-gray-800">${entry.content}</p>
-            
-            <div class="mt-3 flex items-center space-x-4 text-sm text-gray-500">
-                <button class="hover:text-blue-600">▲ ${entry.upvotes || 0}</button>
-                <button class="hover:text-red-600">▼ ${entry.downvotes || 0}</button>
-                <button onclick="showReplyBox('${entry._id}')" class="text-blue-500 hover:underline">Yanıtla</button>
+        <div class="glass-panel p-4 rounded-lg entry-card transition-all">
+            <div class="flex items-center space-x-3 mb-3">
+                <div class="w-8 h-8 rounded-full bg-gray-800 border border-gray-700"></div>
+                <div class="text-[11px]">
+                    <span class="text-white font-bold">@${entry.username}</span>
+                    <span class="text-gray-500 ml-2">• ${dateStr}</span>
+                </div>
             </div>
             
-            <div id="reply-${entry._id}" class="hidden mt-4 pl-4 border-l-2 border-blue-100">
-                <textarea id="input-${entry._id}" class="w-full p-2 border rounded text-sm" placeholder="Yanıtını yaz..."></textarea>
-                <button onclick="submitReply('${entry._id}')" class="bg-blue-600 text-white px-3 py-1 rounded mt-2 text-xs">Gönder</button>
+            <p class="text-sm text-gray-300 leading-relaxed mb-4">
+                ${entry.title ? `<strong class="block text-white mb-1">#${entry.title}</strong>` : ''}
+                ${entry.content}
+            </p>
+            
+            <div class="flex items-center space-x-6 text-[10px] font-bold text-gray-500">
+                <div class="flex items-center space-x-2 bg-[#2a2a2a] rounded px-2 py-1">
+                    <button id="vote-up-${entry._id}" onclick="castVote('${entry._id}', 'up')" class="hover:text-white transition">▲</button>
+                    <span class="text-gray-300">${(entry.upvotes || 0) - (entry.downvotes || 0)}</span>
+                    <button id="vote-down-${entry._id}" onclick="castVote('${entry._id}', 'down')" class="hover:text-white transition">▼</button>
+                </div>
+                <button onclick="showReplyBox('${entry._id}')" class="hover:text-white flex items-center">
+                    <span class="mr-1">💬</span> KONUŞLAR
+                </button>
+                <span class="text-gray-600">KONFİRMED INFO</span>
+            </div>
+            
+            <div id="reply-${entry._id}" class="hidden mt-4 pt-4 border-t border-[#333]">
+                <textarea id="input-${entry._id}" class="w-full bg-[#121212] border border-[#444] rounded p-2 text-xs outline-none" placeholder="Yanıtını yaz..."></textarea>
+                <button onclick="submitReply('${entry._id}')" class="bg-blue-600 text-white px-4 py-1 rounded mt-2 text-[10px]">GÖNDER</button>
             </div>
 
             ${entry.children.length > 0 ? `
@@ -105,55 +134,55 @@ function renderEntry(entry) {
     `;
 }
 
+async function createTopic() {
+    const titleInput = document.getElementById('topic-title');
+    const content = titleInput.value;
+    if (!content) return alert("Mesaj yazmalısın!");
+
+    toggleLoader(true);
+    try {
+        const res = await fetch('/api/posts', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content, title: content.split(' ')[0] }) // İlk kelimeyi başlık yapar
+        });
+        if (res.ok) { titleInput.value = ''; await loadEntries(); }
+    } finally { toggleLoader(false); }
+}
+
 async function submitReply(parentId) {
-    const content = document.getElementById(`input-${parentId}`).value;
+    const input = document.getElementById(`input-${parentId}`);
+    const content = input.value;
     if (!content) return;
 
     toggleLoader(true);
-    await fetch('/api/posts', {
-        method: 'POST',
-        headers: { 
-            'Authorization': `Bearer ${currentUser.token}`,
-            'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify({ content, parentId })
-    });
-    loadEntries();
+    try {
+        await fetch('/api/posts', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content, parentId })
+        });
+        await loadEntries();
+    } finally { toggleLoader(false); }
 }
 
 function showReplyBox(id) {
-    const box = document.getElementById(`reply-${id}`);
-    box.classList.toggle('hidden');
+    document.getElementById(`reply-${id}`).classList.toggle('hidden');
 }
 
-// Sayfa açıldığında verileri çek
-loadEntries();
-
 async function castVote(entryId, type) {
-    if (!currentUser) return alert("Önce giriş yapmalısın!");
-
-    // OPTIMISTIC UI: Backend'i beklemeden sayıyı görsel olarak artır
-    const voteBtn = document.getElementById(`vote-${type}-${entryId}`);
-    const originalText = voteBtn.innerText;
-    const currentCount = parseInt(originalText.split(' ')[1]);
-    voteBtn.innerText = `${type === 'up' ? '▲' : '▼'} ${currentCount + 1}`;
-    voteBtn.classList.add('text-blue-600', 'font-bold');
-
+    if (!currentUser) return alert("Giriş yapmalısın!");
     try {
         const res = await fetch('/api/votes', {
             method: 'POST',
-            headers: { 
-                'Authorization': `Bearer ${currentUser.token}`,
-                'Content-Type': 'application/json' 
-            },
+            headers: { 'Authorization': `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ entryId, type })
         });
-
-        if (!res.ok) throw new Error("Hata");
-    } catch (err) {
-        // Hata olursa eski haline geri döndür
-        voteBtn.innerText = originalText;
-        voteBtn.classList.remove('text-blue-600', 'font-bold');
-        alert("Oy verilirken bir hata oluştu (belki zaten oy verdin).");
-    }
+        if (res.ok) loadEntries();
+        else alert("Zaten oy verdin!");
+    } catch (e) { alert("Hata!"); }
 }
+
+// Başlat
+updateNav();
+loadEntries();

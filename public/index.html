@@ -2,36 +2,89 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Modern Sözlük</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Külliyat Sözlük | Wiki-Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .loader { border-top-color: #3498db; animation: spin 1s linear infinite; }
+        body { background-color: #121212; color: #e0e0e0; }
+        .glass-panel { background: #1e1e1e; border: 1px solid #333; }
+        .loader { border-top-color: #3b82f6; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .thread-line { border-left: 2px solid #e5e7eb; margin-left: 1rem; padding-left: 1rem; }
+        .thread-line { border-left: 2px solid #333; margin-left: 1.25rem; padding-left: 1rem; }
+        .entry-card:hover { border-color: #444; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900">
-    <div id="loading" class="fixed inset-0 bg-white bg-opacity-80 z-50 hidden flex items-center justify-center">
-        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12"></div>
+<body class="min-h-screen">
+    <div id="loading" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center">
+        <div class="loader ease-linear rounded-full border-4 border-gray-700 h-12 w-12"></div>
     </div>
 
-    <nav class="bg-white shadow-sm p-4 sticky top-0 z-40">
-        <div class="max-w-4xl mx-auto flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-blue-600">sozluk.js</h1>
-            <div id="auth-buttons">
+    <nav class="glass-panel sticky top-0 z-40 p-3 mb-6">
+        <div class="max-w-[1400px] mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-8">
+                <h1 class="font-bold text-xl tracking-tighter">LOGO: WIKI-FANDOM</h1>
+                <div class="hidden md:flex space-x-6 text-sm font-medium text-gray-400">
+                    <a href="#" class="text-white">ANA SAYFA</a>
+                    <a href="#">KEŞFET</a>
+                    <a href="#">SOHBET</a>
                 </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <input type="text" placeholder="Ara..." class="bg-[#2a2a2a] border border-[#444] rounded px-3 py-1 text-sm outline-none">
+                <div id="auth-buttons" class="flex space-x-2"></div>
+            </div>
         </div>
     </nav>
 
-    <main class="max-w-4xl mx-auto p-4 mt-6">
-        <div id="new-topic-area" class="mb-8 hidden">
-            <input id="topic-title" type="text" placeholder="Başlık aç..." class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none">
-            <button onclick="createTopic()" class="mt-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">Paylaş</button>
-        </div>
-
-        <div id="feed" class="space-y-6">
+    <div class="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-6 px-4">
+        <aside class="md:col-span-2 space-y-6">
+            <div class="space-y-4 text-gray-400 text-sm">
+                <p class="text-white font-bold flex items-center"><span class="mr-2">👥</span> TOPLULUKLAR</p>
+                <a href="#" class="block hover:text-white">📁 KATEGORİLER</a>
+                <a href="#" class="block hover:text-white">📈 TRENDLER</a>
+                <a href="#" class="block hover:text-white">🤝 ARKADAŞLAR</a>
             </div>
-    </main>
+        </aside>
+
+        <main class="md:col-span-7 space-y-6">
+            <div id="new-topic-area" class="glass-panel p-4 rounded-lg hidden">
+                <p class="text-xs font-bold mb-3">YENİ GÖNDERİ PAYLAŞ</p>
+                <div class="flex space-x-4">
+                    <div class="w-12 h-12 rounded bg-gray-700 flex items-center justify-center text-xs">Edit</div>
+                    <textarea id="topic-title" placeholder="Ne düşünüyorsun? #Konu #Wiki..." class="w-full bg-[#2a2a2a] border border-[#444] rounded p-2 text-sm outline-none resize-none h-20"></textarea>
+                </div>
+                <div class="flex justify-end mt-3 space-x-2">
+                    <button onclick="createTopic()" class="bg-white text-black px-6 py-1.5 rounded font-bold text-xs hover:bg-gray-200">GÖNDER</button>
+                </div>
+            </div>
+
+            <p class="text-xs font-bold text-gray-500">SON GÖNDERİLER VE TARTIŞMALAR</p>
+            <div id="feed" class="space-y-4"></div>
+        </main>
+
+        <aside class="md:col-span-3 space-y-6 text-xs">
+            <div class="glass-panel p-4 rounded-lg">
+                <p class="font-bold mb-4">GÜNCEL KONULAR</p>
+                <div class="space-y-3 text-gray-400">
+                    <p class="hover:text-white cursor-pointer">#Konu Başlığı 1 <span class="text-gray-600">(123)</span></p>
+                    <p class="hover:text-white cursor-pointer">#Konu 2 <span class="text-gray-600">(89)</span></p>
+                    <p class="hover:text-white cursor-pointer">#Haber 3 <span class="text-gray-600">(67)</span></p>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <div id="auth-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center">
+        <div class="glass-panel p-8 rounded-xl w-96">
+            <h2 id="modal-title" class="text-xl font-bold mb-4">Giriş Yap</h2>
+            <input id="auth-user" type="text" placeholder="Kullanıcı Adı" class="w-full bg-[#2a2a2a] border border-[#444] p-2 mb-3 rounded outline-none">
+            <input id="auth-pass" type="password" placeholder="Şifre" class="w-full bg-[#2a2a2a] border border-[#444] p-2 mb-6 rounded outline-none">
+            <div class="flex justify-between">
+                <button onclick="document.getElementById('auth-modal').classList.add('hidden')" class="text-gray-500">İptal</button>
+                <button id="auth-submit-btn" class="bg-blue-600 px-6 py-2 rounded font-bold">Tamam</button>
+            </div>
+        </div>
+    </div>
 
     <script src="app.js"></script>
 </body>
