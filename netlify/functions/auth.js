@@ -2,7 +2,8 @@ const { connectToDatabase } = require("./utils/db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-const SECRET = "senin_gizli_anahtarin_buraya"; // Gerçek projede bunu env yapmalısın
+// Bu anahtar token üretmek için şart!
+const SECRET = process.env.JWT_SECRET
 
 exports.handler = async (event) => {
   const db = await connectToDatabase();
