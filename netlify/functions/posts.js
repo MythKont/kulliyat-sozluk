@@ -21,15 +21,21 @@ exports.handler = async (event) => {
             const topicId = params.topicId;
             const isTrend = params.trend === "true";
 
-            if (isTrend) {
-                const topics = await posts.find({ parentId: null }).limit(50).toArray();
-                const trends = await Promise.all(topics.map(async (t) => {
-                    const count = await posts.countDocuments({ parentId: t._id.toString() });
-                    return { ...t, replyCount: count };
-                }));
-                trends.sort((a, b) => b.replyCount - a.replyCount);
-                return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify(trends) };
-            }
+            // posts.js -> isTrend bloğu
+if (isTrend) {
+    // Sadece ana başlıkları bul (parentId: null olanlar)
+    const topics = await posts.find({ parentId: null }).toArray();
+    
+    const trends = await Promise.all(topics.map(async (t) => {
+        // Bu başlığın ID'sini parentId olarak kullanan kaç tane kayıt var?
+        const count = await posts.countDocuments({ parentId: t._id.toString() });
+        return { ...t, entryCount: count };
+    }));
+
+    // Çok entry'si olandan az olana sırala
+    trends.sort((a, b) => b.entryCount - a.entryCount);
+    return { statusCode: 200, body: JSON.stringify(trends) };
+}
 
             if (topicId) {
                 const data = await posts.find({

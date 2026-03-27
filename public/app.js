@@ -483,3 +483,33 @@ async function castVote(entryId, type) {
 // Başlat
 updateNav();
 loadEntries();
+
+async function submitEntryToTopic() {
+    const input = document.getElementById('main-entry-input');
+    const content = input.value.trim();
+    
+    if (!content || !currentTopicId) return alert("İçerik boş olamaz!");
+    if (!currentUser) return alert("Entry girmek için giriş yapmalısın!");
+
+    try {
+        const res = await fetch('/api/posts', {
+            method: 'POST',
+            headers: { 
+                'Authorization': `Bearer ${currentUser.token}`, 
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ 
+                content: content, 
+                parentId: currentTopicId // Konunun ID'sini veriyoruz ki "ana entry" olsun
+            })
+        });
+
+        if (res.ok) {
+            input.value = '';
+            // Konuyu tazele ki yeni entry'ni gör
+            openTopic(currentTopicId, currentTopicTitle);
+            // Sağ tarafı güncelle (Entry sayısı arttı, trend değişebilir)
+            loadTrends();
+        }
+    } catch (e) { alert("Entry gönderilemedi."); }
+}
