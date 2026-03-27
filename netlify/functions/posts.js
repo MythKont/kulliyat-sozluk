@@ -9,64 +9,63 @@ exports.handler = async (event) => {
     try {
         db = await connectToDatabase();
     } catch (err) {
-        console.error("DB Bağlantı Hatası:", err);
-        return { statusCode: 500, body: JSON.stringify({ error: "Veritabanına bağlanılamadı." }) };
+        console.error("DB Connection Error:", err);
+        return { statusCode: 500, body: JSON.stringify({ error: "Veritabanı hatası" }) };
     }
     const posts = db.collection("entries");
 
-    // --- GET SORGULARI ---
+    // --- GET ---
     if (event.httpMethod === "GET") {
         try {
             const params = event.queryStringParameters || {};
             const topicId = params.topicId;
             const isTrend = params.trend === "true";
 
-            // 1. SENARYO: Sağ Sütun (Trend Başlıklar)
             if (isTrend) {
-                // Sadece ana konuları (parentId: null) getir
-                const topics = await posts.find({ parentId: null }).limit(20).toArray();
-                
-                // Her konunun altındaki yorum sayısını hesapla
+                const topics = await posts.find({ parentId: null }).limit(50).toArray();
                 const trends = await Promise.all(topics.map(async (t) => {
                     const count = await posts.countDocuments({ parentId: t._id.toString() });
                     return { ...t, replyCount: count };
                 }));
-
-                // En çok yorum alana göre sırala
                 trends.sort((a, b) => b.replyCount - a.replyCount);
-                return { statusCode: 200, body: JSON.stringify(trends) };
+                return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify(trends) };
             }
 
-            // 2. SENARYO: Bir Konu Seçildi (Konu + Yorumlar)
             if (topicId) {
                 const data = await posts.find({
-                    $or: [
-                        { _id: new ObjectId(topicId) },
-                        { parentId: topicId }
-                    ]
+                    $or: [{ _id: new ObjectId(topicId) }, { parentId: topicId }]
                 }).sort({ createdAt: 1 }).toArray();
-                return { statusCode: 200, body: JSON.stringify(data) };
+                return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) };
             }
 
-            // 3. SENARYO: Genel Akış (Fallback)
-            const all = await posts.find().sort({ createdAt: -1 }).limit(50).toArray();
-            return { statusCode: 200, body: JSON.stringify(all) };
-
+            const all = await posts.find().sort({ createdAt: -1 }).limit(20).toArray();
+            return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify(all) };
         } catch (err) {
-            console.error("Sorgu Hatası:", err);
-            return { statusCode: 500, body: JSON.stringify({ error: "Veri çekilemedi." }) };
+            return { statusCode: 500, body: JSON.stringify({ error: "Veri çekme hatası" }) };
         }
     }
 
-    // --- POST SORGULARI (Entry Girme) ---
+    // --- POST (Entry/Konu Ekleme) ---
     if (event.httpMethod === "POST") {
         try {
             const authHeader = event.headers.authorization;
             if (!authHeader) return { statusCode: 401, body: JSON.stringify({ error: "Yetkisiz." }) };
-            
+
             const token = authHeader.split(" ")[1];
             const decoded = jwt.verify(token, SECRET);
-            const { title, content, parentId } = JSON.parse(event.body);
+
+            // GÜVENLİK KONTROLÜ: Body boş mu?
+            if (!event.body) {
+                return { statusCode: 400, body: JSON.stringify({ error: "İçerik boş olamaz." }) };
+            }
+
+            const body = JSON.parse(event.body);
+            const { title, content, parentId } = body;
+
+            // İçerik kontrolü
+            if (!content) {
+                return { statusCode: 400, body: JSON.stringify({ error: "Mesaj içeriği boş olamaz." }) };
+            }
 
             const newEntry = {
                 username: decoded.username,
@@ -82,10 +81,12 @@ exports.handler = async (event) => {
             const result = await posts.insertOne(newEntry);
             return { 
                 statusCode: 201, 
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: "Başarılı", topicId: result.insertedId }) 
             };
         } catch (err) {
-            return { statusCode: 400, body: JSON.stringify({ error: "İşlem başarısız." }) };
+            console.error("POST Hatası:", err);
+            return { statusCode: 400, body: JSON.stringify({ error: "Veri formatı hatalı veya Token geçersiz." }) };
         }
     }
 
