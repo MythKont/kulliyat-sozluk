@@ -128,3 +128,32 @@ function showReplyBox(id) {
 
 // Sayfa açıldığında verileri çek
 loadEntries();
+
+async function castVote(entryId, type) {
+    if (!currentUser) return alert("Önce giriş yapmalısın!");
+
+    // OPTIMISTIC UI: Backend'i beklemeden sayıyı görsel olarak artır
+    const voteBtn = document.getElementById(`vote-${type}-${entryId}`);
+    const originalText = voteBtn.innerText;
+    const currentCount = parseInt(originalText.split(' ')[1]);
+    voteBtn.innerText = `${type === 'up' ? '▲' : '▼'} ${currentCount + 1}`;
+    voteBtn.classList.add('text-blue-600', 'font-bold');
+
+    try {
+        const res = await fetch('/api/votes', {
+            method: 'POST',
+            headers: { 
+                'Authorization': `Bearer ${currentUser.token}`,
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ entryId, type })
+        });
+
+        if (!res.ok) throw new Error("Hata");
+    } catch (err) {
+        // Hata olursa eski haline geri döndür
+        voteBtn.innerText = originalText;
+        voteBtn.classList.remove('text-blue-600', 'font-bold');
+        alert("Oy verilirken bir hata oluştu (belki zaten oy verdin).");
+    }
+}
