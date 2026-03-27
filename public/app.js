@@ -122,30 +122,48 @@ async function loadEntries() {
     // Balon tıklandığında veya sayfa yenilendiğinde sayaçları sıfırla
     newPostsCount = 0;
     lastCheckTime = Date.now(); 
-    // Spinner'ı sadece ilk yüklemede gösterelim ki akıcılık bozulmasın
+
     const feed = document.getElementById('feed');
+    // Eğer içerik boşsa yükleme animasyonunu göster
     if (feed.innerHTML === '') toggleLoader(true);
 
     try {
         const res = await fetch('/api/posts');
         const data = await res.json();
         
-        // Dallanma Mantığı (Aynı kalıyor)
-        const entryMap = {};
-        data.forEach(item => { item.children = []; entryMap[item._id] = item; });
+        // GÜVENLİK KONTROLÜ: Eğer gelen veri bir liste (array) değilse durdur
+        if (!Array.isArray(data)) {
+            console.error("Gelen veri liste değil:", data);
+            feed.innerHTML = `<p class="text-gray-500 text-center text-xs mt-10">Henüz bir gönderi yok veya bir bağlantı sorunu var.</p>`;
+            return;
+        }
 
+        const entryMap = {};
         const roots = [];
+
+        // 1. Adım: Tüm verileri haritaya yerleştir ve çocuk listelerini hazırla
+        data.forEach(item => { 
+            item.children = []; 
+            entryMap[item._id] = item; 
+        });
+
+        // 2. Adım: Dallanma (Thread) mantığını kur
         data.forEach(item => {
             if (item.parentId && entryMap[item.parentId]) {
+                // Eğer bir ebeveyni varsa, onun çocuklarına ekle
                 entryMap[item.parentId].children.push(item);
             } else {
+                // Ebeveyni yoksa bu bir ana konudur
                 roots.push(item);
             }
         });
 
+        // 3. Adım: Ekrana bas
         feed.innerHTML = roots.map(renderEntry).join('');
+
     } catch (e) {
         console.error("Yükleme hatası:", e);
+        feed.innerHTML = `<p class="text-red-500 text-center text-xs mt-10">Veriler yüklenirken bir hata oluştu.</p>`;
     } finally {
         toggleLoader(false);
     }

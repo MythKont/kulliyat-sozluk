@@ -12,16 +12,26 @@ exports.handler = async (event) => {
   // 1. Yazıları Listele (GET)
   // GET isteği gelirse
 if (event.httpMethod === "GET") {
-    const since = event.queryStringParameters.since;
-    let query = {};
-    
-    // Eğer 'since' parametresi varsa, sadece o tarihten sonrasını getir
-    if (since) {
-        query = { createdAt: { $gt: new Date(parseInt(since)) } };
-    }
+    try {
+        const since = event.queryStringParameters ? event.queryStringParameters.since : null;
+        let query = {};
+        
+        if (since && since !== "undefined") {
+            query = { createdAt: { $gt: new Date(parseInt(since)) } };
+        }
 
-    const data = await posts.find(query).sort({ createdAt: -1 }).toArray();
-    return { statusCode: 200, body: JSON.stringify(data) };
+        const data = await posts.find(query).sort({ createdAt: -1 }).toArray();
+        
+        // KRİTİK: Her zaman bir array döndüğünden emin olalım
+        return { 
+            statusCode: 200, 
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(Array.isArray(data) ? data : []) 
+        };
+    } catch (err) {
+        console.error("Veritabanı hatası:", err);
+        return { statusCode: 500, body: JSON.stringify({ error: "Veriler alınamadı" }) };
+    }
 }
 
   // 2. Yeni Yazı/Yanıt Ekle (POST) - Sadece Giriş Yapanlar
