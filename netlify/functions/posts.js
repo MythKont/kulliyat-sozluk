@@ -2,62 +2,68 @@ const { connectToDatabase } = require("./utils/db");
 const { ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 
-const SECRET = process.env.JWT_SECRET
+const SECRET = process.env.JWT_SECRET || "kulliyat_ozel_anahtar_2026";
 
 exports.handler = async (event) => {
-  const db = await connectToDatabase();
-  const entries = db.collection("entries");
-  const method = event.httpMethod;
-
-  // 1. Yazıları Listele (GET)
-  // GET isteği gelirse
-if (event.httpMethod === "GET") {
+    // 1. Veritabanı Bağlantısı
+    let db;
     try {
-        const since = event.queryStringParameters ? event.queryStringParameters.since : null;
-        let query = {};
-        
-        if (since && since !== "undefined") {
-            query = { createdAt: { $gt: new Date(parseInt(since)) } };
+        db = await connectToDatabase();
+    } catch (err) {
+        return { statusCode: 500, body: JSON.stringify({ error: "Veritabanı bağlantı hatası" }) };
+    }
+    const posts = db.collection("entries");
+
+    // --- GET İSTEĞİ (Yazıları Listeleme) ---
+    if (event.httpMethod === "GET") {
+        try {
+            const since = event.queryStringParameters ? event.queryStringParameters.since : null;
+            let query = {};
+            
+            // Zaman filtresi varsa uygula
+            if (since && since !== "undefined" && !isNaN(since)) {
+                query = { createdAt: { $gt: new Date(parseInt(since)) } };
+            }
+
+            const data = await posts.find(query).sort({ createdAt: -1 }).toArray();
+            return { 
+                statusCode: 200, 
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data) // Her zaman array döner
+            };
+        } catch (err) {
+            return { statusCode: 500, body: JSON.stringify({ error: "Veri çekme hatası" }) };
         }
-
-        const data = await posts.find(query).sort({ createdAt: -1 }).toArray();
-        
-        // KRİTİK: Her zaman bir array döndüğünden emin olalım
-        return { 
-            statusCode: 200, 
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(Array.isArray(data) ? data : []) 
-        };
-    } catch (err) {
-        console.error("Veritabanı hatası:", err);
-        return { statusCode: 500, body: JSON.stringify({ error: "Veriler alınamadı" }) };
     }
-}
 
-  // 2. Yeni Yazı/Yanıt Ekle (POST) - Sadece Giriş Yapanlar
-  if (method === "POST") {
-    const token = event.headers.authorization?.split(" ")[1];
-    if (!token) return { statusCode: 401, body: JSON.stringify({ error: "Giriş yapmalısın." }) };
+    // --- POST İSTEĞİ (Yeni Yazı Paylaşma) ---
+    if (event.httpMethod === "POST") {
+        try {
+            const authHeader = event.headers.authorization;
+            if (!authHeader) return { statusCode: 401, body: JSON.stringify({ error: "Yetkisiz işlem." }) };
 
-    try {
-      const decoded = jwt.verify(token, SECRET);
-      const { content, parentId, title } = JSON.parse(event.body);
+            const token = authHeader.split(" ")[1];
+            const decoded = jwt.verify(token, SECRET);
 
-      const newEntry = {
-        userId: decoded.userId,
-        username: decoded.username,
-        title: title || null, // Eğer ana konuysa başlık olur, yanıt ise null
-        content,
-        parentId: parentId ? new ObjectId(parentId) : null, // Dallanma noktası
-        upvotes: 0,
-        downvotes: 0,
-        createdAt: new Date()
-      };
+            const { title, content, parentId } = JSON.parse(event.body);
 
-      const result = await entries.insertOne(newEntry);
-      return { statusCode: 201, body: JSON.stringify(result) };
-    } catch (err) {
-      return { statusCode: 403, body: JSON.stringify({ error: "Geçersiz token." }) };
+            const newEntry = {
+                username: decoded.username,
+                userId: decoded.userId,
+                title: title || null,
+                content: content,
+                parentId: parentId ? parentId : null, // ObjectId'ye çevirmeden saklamak daha güvenli
+                upvotes: 0,
+                downvotes: 0,
+                createdAt: new Date()
+            };
+
+            await posts.insertOne(newEntry);
+            return { statusCode: 201, body: JSON.stringify({ message: "Başarılı" }) };
+        } catch (err) {
+            return { statusCode: 401, body: JSON.stringify({ error: "Token geçersiz veya veri hatası" }) };
+        }
     }
-  }
+
+    return { statusCode: 405, body: "Method Not Allowed" };
 };
