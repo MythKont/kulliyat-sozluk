@@ -1,6 +1,83 @@
 let currentUser = JSON.parse(localStorage.getItem("user")) || null;
 let lastCheckTime = Date.now();
 let newPostsCount = 0;
+let selectedTopicId = null;
+
+// SAĞ SÜTUN: Konu Başlıklarını Yükle
+async function loadTrends() {
+    // index.html'deki sağ sütun div'inin içindeki listeyi hedef alıyoruz
+    const trendList = document.querySelector('.space-y-4.mt-4'); 
+    if (!trendList) return;
+
+    try {
+        const res = await fetch('/api/posts?trend=true');
+        const data = await res.json();
+
+        trendList.innerHTML = data.map(item => `
+            <div onclick="openTopic('${item._id}')" 
+                 class="group cursor-pointer border-b border-white/5 pb-3 pt-2 px-2 hover:bg-blue-600/10 rounded transition-all">
+                <h4 class="text-[10px] font-bold text-gray-300 group-hover:text-blue-400 uppercase tracking-tight">
+                    # ${item.title}
+                </h4>
+                <div class="flex items-center justify-between mt-1 text-[8px] text-gray-600 font-mono">
+                    <span>${item.upvotes || 0} PUAN</span>
+                    <span class="text-blue-900">@${item.username}</span>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) { console.log("Trendler yüklenemedi"); }
+}
+
+// ORTA ALAN: Tıklanan Konuyu ve Yanıtları Getir
+async function openTopic(topicId) {
+    selectedTopicId = topicId;
+    const feed = document.getElementById('feed');
+    
+    // Orta alanı temizle ve yükleniyor göster
+    feed.innerHTML = ''; 
+    toggleLoader(true);
+
+    try {
+        const res = await fetch(`/api/posts?topicId=${topicId}`);
+        const data = await res.json();
+
+        if (!Array.isArray(data) || data.length === 0) {
+            feed.innerHTML = "<p class='text-center text-gray-500 text-xs mt-10'>Konu içeriği yüklenemedi.</p>";
+            return;
+        }
+
+        // Dallanma Mantığı (Aynı kalıyor)
+        const entryMap = {};
+        data.forEach(item => { item.children = []; entryMap[item._id] = item; });
+        const roots = [];
+        data.forEach(item => {
+            if (item.parentId && entryMap[item.parentId]) {
+                entryMap[item.parentId].children.push(item);
+            } else {
+                roots.push(item);
+            }
+        });
+
+        // Konu başlığını ve altındaki tüm akışı render et
+        feed.innerHTML = roots.map(renderEntry).join('');
+        
+        // Şık bir geçiş için yukarı kaydır
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    } catch (e) {
+        console.error("Yükleme hatası:", e);
+    } finally {
+        toggleLoader(false);
+    }
+}
+
+// SAYFA İLK AÇILDIĞINDA
+window.onload = () => {
+    updateNav();
+    loadTrends(); // Önce sağ tarafı doldur
+    // İstersen en popüler konuyu otomatik açtırabilirsin:
+    // fetch('/api/posts?trend=true').then(r => r.json()).then(d => openTopic(d[0]._id));
+};
 
 // Akıllı Polling: Her 30 saniyede bir yeni post var mı diye kontrol et
 setInterval(checkNewPosts, 5000);
@@ -252,7 +329,7 @@ async function createTopic() {
     const title = titleInput.value.trim();
     const content = contentInput.value.trim();
     
-    if (!title || !content) return alert("Başlık ve içerik alanlarını doldurmalısın!");
+    if (!title || !content) return alert("Başlık ve içerik girmelisin!");
     if (!currentUser) return alert("Önce giriş yapmalısın!");
 
     toggleLoader(true);
@@ -265,18 +342,23 @@ async function createTopic() {
             },
             body: JSON.stringify({ 
                 title: title, 
-                content: content 
-                // parentId gönderilmediği için otomatik olarak "Ana Konu" olacak
+                content: content,
+                parentId: null // Bu bir ana konudur
             })
         });
 
         if (res.ok) {
             titleInput.value = ''; 
             contentInput.value = '';
-            await loadEntries();   
+            // 1. Sağ taraftaki listeyi güncelle (Yeni konu orada görünsün)
+            await loadTrends(); 
+            // 2. Kullanıcıyı otomatik olarak yeni açtığı konuya sok (Şık olur)
+            const result = await res.json();
+            if(result.topicId) openTopic(result.topicId); 
+            else location.reload(); // Alternatif: sayfayı yenile
         } else {
             const err = await res.json();
-            alert(err.error || "Paylaşım yapılamadı.");
+            alert(err.error || "Konu açılamadı.");
         }
     } catch (err) {
         alert("Bağlantı hatası!");
@@ -287,18 +369,34 @@ async function createTopic() {
 
 async function submitReply(parentId) {
     const input = document.getElementById(`input-${parentId}`);
-    const content = input.value;
+    const content = input.value.trim();
     if (!content) return;
+    if (!currentUser) return alert("Giriş yapmalısın!");
 
     toggleLoader(true);
     try {
-        await fetch('/api/posts', {
+        const res = await fetch('/api/posts', {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content, parentId })
+            headers: { 
+                'Authorization': `Bearer ${currentUser.token}`, 
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ 
+                content: content, 
+                parentId: parentId // Hangi mesaja yanıt veriliyorsa onun ID'si
+            })
         });
-        await loadEntries();
-    } finally { toggleLoader(false); }
+
+        if (res.ok) {
+            input.value = '';
+            // Konuyu tekrar yükle ki yeni yanıtı görelim
+            if (selectedTopicId) openTopic(selectedTopicId);
+        }
+    } catch (e) {
+        alert("Mesaj gönderilemedi.");
+    } finally { 
+        toggleLoader(false); 
+    }
 }
 
 function showReplyBox(id) {
@@ -306,47 +404,33 @@ function showReplyBox(id) {
 }
 
 async function castVote(entryId, type) {
-    if (!currentUser) return alert("Giriş yapmalısın!");
+    if (!currentUser) return alert("Oy vermek için giriş yapmalısın!");
+    
     try {
         const res = await fetch('/api/votes', {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
+            headers: { 
+                'Authorization': `Bearer ${currentUser.token}`, 
+                'Content-Type': 'application/json' 
+            },
             body: JSON.stringify({ entryId, type })
         });
-        if (res.ok) loadEntries();
-        else alert("Zaten oy verdin!");
-    } catch (e) { alert("Hata!"); }
+
+        if (res.ok) {
+            // Oylama başarılıysa:
+            // 1. Orta alanı tazele (Puanın değiştiğini görsün)
+            if (selectedTopicId) openTopic(selectedTopicId);
+            // 2. Sağ taraftaki trend listesini tazele (Sıralama değişmiş olabilir)
+            loadTrends();
+        } else {
+            const data = await res.json();
+            alert(data.error || "Zaten oy verdin!");
+        }
+    } catch (e) { 
+        alert("Oylama sırasında bir hata oluştu."); 
+    }
 }
 
 // Başlat
 updateNav();
 loadEntries();
-
-async function loadTrends() {
-    const trendList = document.querySelector('.space-y-4.mt-4'); // index.html'deki trend alanı
-    if (!trendList) return;
-
-    try {
-        const res = await fetch('/api/posts?trend=true');
-        const data = await res.json();
-
-        if (data.length > 0) {
-            trendList.innerHTML = data.map(item => `
-                <div class="group cursor-pointer border-b border-white/5 pb-2 hover:border-blue-500/30 transition-all">
-                    <h4 class="text-[11px] font-bold text-gray-300 group-hover:text-blue-400"># ${item.title || 'Başlıksız'}</h4>
-                    <div class="flex items-center space-x-2 mt-1">
-                        <span class="text-[9px] text-gray-600">${item.upvotes || 0} beğeni</span>
-                        <span class="text-[9px] text-gray-600">•</span>
-                        <span class="text-[9px] text-gray-600">@${item.username}</span>
-                    </div>
-                </div>
-            `).join('');
-        }
-    } catch (e) {
-        console.error("Trend yükleme hatası");
-    }
-}
-
-// app.js'in en altında loadEntries()'in yanına ekle:
-loadEntries();
-loadTrends(); // Sayfa açılınca trendleri de yükle
