@@ -6,8 +6,11 @@ const SECRET = process.env.JWT_SECRET || "kulliyat_ozel_anahtar_2026";
 
 exports.handler = async (event) => {
     let db;
-    try { db = await connectToDatabase(); } catch (err) {
-        return { statusCode: 500, body: JSON.stringify({ error: "DB Hatası" }) };
+    try {
+        db = await connectToDatabase();
+    } catch (err) {
+        console.error("DB Bağlantı Hatası:", err);
+        return { statusCode: 500, body: JSON.stringify({ error: "Veritabanına bağlanılamadı." }) };
     }
     const posts = db.collection("entries");
 
@@ -15,48 +18,51 @@ exports.handler = async (event) => {
     if (event.httpMethod === "GET") {
         try {
             const params = event.queryStringParameters || {};
-            const topicId = params.topicId; // Belirli bir konu tıklandı mı?
-            const isTrend = params.trend === "true"; // Sağ sütun için mi?
-            const since = params.since; // Canlı bildirim için mi?
+            const topicId = params.topicId;
+            const isTrend = params.trend === "true";
 
-            // SENARYO A: Sağ Sütun (Trend Konular)
+            // 1. SENARYO: Sağ Sütun (Trend Başlıklar)
             if (isTrend) {
-                const trends = await posts.find({ parentId: null })
-                    .sort({ upvotes: -1, createdAt: -1 })
-                    .limit(10) // En popüler 10 konu
-                    .toArray();
+                // Sadece ana konuları (parentId: null) getir
+                const topics = await posts.find({ parentId: null }).limit(20).toArray();
+                
+                // Her konunun altındaki yorum sayısını hesapla
+                const trends = await Promise.all(topics.map(async (t) => {
+                    const count = await posts.countDocuments({ parentId: t._id.toString() });
+                    return { ...t, replyCount: count };
+                }));
+
+                // En çok yorum alana göre sırala
+                trends.sort((a, b) => b.replyCount - a.replyCount);
                 return { statusCode: 200, body: JSON.stringify(trends) };
             }
 
-            // SENARYO B: Bir Konuya Tıklandı (Konu + Yanıtlar)
+            // 2. SENARYO: Bir Konu Seçildi (Konu + Yorumlar)
             if (topicId) {
                 const data = await posts.find({
                     $or: [
                         { _id: new ObjectId(topicId) },
                         { parentId: topicId }
                     ]
-                }).sort({ createdAt: 1 }).toArray(); // Sohbet gibi eskiden yeniye
+                }).sort({ createdAt: 1 }).toArray();
                 return { statusCode: 200, body: JSON.stringify(data) };
             }
 
-            // SENARYO C: Genel Akış veya Canlı Kontrol
-            let query = {};
-            if (since && since !== "undefined" && !isNaN(since)) {
-                query = { createdAt: { $gt: new Date(parseInt(since)) } };
-            }
-            const all = await posts.find(query).sort({ createdAt: -1 }).toArray();
+            // 3. SENARYO: Genel Akış (Fallback)
+            const all = await posts.find().sort({ createdAt: -1 }).limit(50).toArray();
             return { statusCode: 200, body: JSON.stringify(all) };
 
         } catch (err) {
-            return { statusCode: 500, body: JSON.stringify({ error: "Sorgu Hatası" }) };
+            console.error("Sorgu Hatası:", err);
+            return { statusCode: 500, body: JSON.stringify({ error: "Veri çekilemedi." }) };
         }
     }
 
-    // --- POST SORGULARI (Konu Açma / Yanıt Verme) ---
+    // --- POST SORGULARI (Entry Girme) ---
     if (event.httpMethod === "POST") {
         try {
             const authHeader = event.headers.authorization;
-            if (!authHeader) return { statusCode: 401, body: JSON.stringify({ error: "Giriş yapmalısın." }) };
+            if (!authHeader) return { statusCode: 401, body: JSON.stringify({ error: "Yetkisiz." }) };
             
             const token = authHeader.split(" ")[1];
             const decoded = jwt.verify(token, SECRET);
@@ -65,7 +71,7 @@ exports.handler = async (event) => {
             const newEntry = {
                 username: decoded.username,
                 userId: decoded.userId,
-                title: title || null, // Sadece ana konularda başlık olur
+                title: title || null,
                 content: content,
                 parentId: parentId || null,
                 upvotes: 0,
@@ -73,25 +79,15 @@ exports.handler = async (event) => {
                 createdAt: new Date()
             };
 
-            await posts.insertOne(newEntry);
-            return { statusCode: 201, body: JSON.stringify({ message: "Gönderildi" }) };
+            const result = await posts.insertOne(newEntry);
+            return { 
+                statusCode: 201, 
+                body: JSON.stringify({ message: "Başarılı", topicId: result.insertedId }) 
+            };
         } catch (err) {
-            return { statusCode: 401, body: JSON.stringify({ error: "Oturum hatası" }) };
+            return { statusCode: 400, body: JSON.stringify({ error: "İşlem başarısız." }) };
         }
     }
-};  
-// posts.js içindeki Trend kısmına şunu ekleyebilirsin
-if (isTrend) {
-    const topics = await posts.find({ parentId: null }).toArray();
-    
-    // Her konu için yorum sayısını bul ve ekle
-    const dataWithCounts = await Promise.all(topics.map(async (t) => {
-        const count = await posts.countDocuments({ parentId: t._id.toString() });
-        return { ...t, replyCount: count };
-    }));
 
-    // Yorum sayısına göre büyükten küçüğe sırala
-    dataWithCounts.sort((a, b) => b.replyCount - a.replyCount);
-    
-    return { statusCode: 200, body: JSON.stringify(dataWithCounts.slice(0, 15)) };
-}
+    return { statusCode: 405, body: "Method Not Allowed" };
+};
