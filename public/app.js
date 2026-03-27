@@ -582,3 +582,20 @@ if (res.ok) {
     document.getElementById('new-topic-area').classList.add('hidden');
     // ...
 }
+
+// Sayfa ilk yüklendiğinde her şeyi kontrol altına alalım
+window.addEventListener('DOMContentLoaded', () => {
+    const newTopicArea = document.getElementById('new-topic-area');
+    if (newTopicArea) {
+        // ZORLA GİZLE: Eğer 'hidden' yoksa ekle
+        newTopicArea.classList.add('hidden');
+    }
+});
+
+// Senin o meşhur butona basınca açılması için bu fonksiyon kalsın:
+function toggleNewTopicArea() {
+    const area = document.getElementById('new-topic-area');
+    if (area) {
+        area.classList.toggle('hidden');
+    }
+}
