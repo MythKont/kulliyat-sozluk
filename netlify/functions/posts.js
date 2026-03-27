@@ -10,10 +10,19 @@ exports.handler = async (event) => {
   const method = event.httpMethod;
 
   // 1. Yazıları Listele (GET)
-  if (method === "GET") {
-    const allEntries = await entries.find().sort({ createdAt: -1 }).toArray();
-    return { statusCode: 200, body: JSON.stringify(allEntries) };
-  }
+  // GET isteği gelirse
+if (event.httpMethod === "GET") {
+    const since = event.queryStringParameters.since;
+    let query = {};
+    
+    // Eğer 'since' parametresi varsa, sadece o tarihten sonrasını getir
+    if (since) {
+        query = { createdAt: { $gt: new Date(parseInt(since)) } };
+    }
+
+    const data = await posts.find(query).sort({ createdAt: -1 }).toArray();
+    return { statusCode: 200, body: JSON.stringify(data) };
+}
 
   // 2. Yeni Yazı/Yanıt Ekle (POST) - Sadece Giriş Yapanlar
   if (method === "POST") {

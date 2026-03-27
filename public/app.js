@@ -1,4 +1,49 @@
 let currentUser = JSON.parse(localStorage.getItem("user")) || null;
+let lastCheckTime = Date.now();
+let newPostsCount = 0;
+
+// Akıllı Polling: Her 30 saniyede bir yeni post var mı diye kontrol et
+setInterval(checkNewPosts, 5000);
+
+async function checkNewPosts() {
+    if (document.hidden) return; 
+
+    try {
+        // Sadece son kontrol zamanından sonrasını soruyoruz
+        const res = await fetch(`/api/posts?since=${lastCheckTime}`);
+        const data = await res.json();
+        
+        if (data && data.length > 0) {
+            // Sadece başkalarının attığı postları say (opsiyonel ama daha iyi hissettirir)
+            const othersPosts = data.filter(p => p.username !== currentUser?.username);
+            
+            if (othersPosts.length > 0) {
+                newPostsCount += othersPosts.length;
+                showNewPostAlert();
+            }
+        }
+        // Zaman damgasını her kontrolde güncelle ki aynı şeyleri tekrar sormayalım
+        lastCheckTime = Date.now();
+    } catch (e) { console.log("Canlı kontrol hatası"); }
+}
+
+function showNewPostAlert() {
+    let alertBox = document.getElementById('new-post-alert');
+    if (!alertBox) {
+        alertBox = document.createElement('div');
+        alertBox.id = 'new-post-alert';
+        // Görseldeki tasarıma uygun, yüzen mavi bir buton
+        alertBox.className = "fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-blue-600 text-white px-6 py-2 rounded-full shadow-2xl cursor-pointer font-bold text-[10px] animate-bounce border border-blue-400";
+        document.body.appendChild(alertBox);
+    }
+    alertBox.innerHTML = `✨ ${newPostsCount} YENİ GÖNDERİ VAR`;
+    alertBox.onclick = () => {
+        newPostsCount = 0;
+        alertBox.remove();
+        loadEntries(); 
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+}
 
 // --- YARDIMCI FONKSİYONLAR ---
 const toggleLoader = (show) => {
@@ -74,6 +119,9 @@ function updateNav() {
 
 // --- İÇERİK İŞLEMLERİ ---
 async function loadEntries() {
+    // Balon tıklandığında veya sayfa yenilendiğinde sayaçları sıfırla
+    newPostsCount = 0;
+    lastCheckTime = Date.now(); 
     // Spinner'ı sadece ilk yüklemede gösterelim ki akıcılık bozulmasın
     const feed = document.getElementById('feed');
     if (feed.innerHTML === '') toggleLoader(true);
