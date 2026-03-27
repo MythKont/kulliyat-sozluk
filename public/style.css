@@ -22,3 +22,11 @@
 .entry-card:hover {
     transform: translateX(4px);
 }
+
+.thread-line {
+    border-left: 1px solid #333; /* Daha ince, zarif bir çizgi */
+    margin-left: 0.75rem;
+    padding-left: 1.25rem;
+    margin-top: 0.5rem;
+    border-bottom-left-radius: 8px; /* Alt kısımlarda hafif yuvarlama */
+}

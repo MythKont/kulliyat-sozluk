@@ -105,8 +105,10 @@ async function loadEntries() {
 
 function renderEntry(entry) {
     const dateStr = new Date(entry.createdAt).toLocaleDateString('tr-TR');
+    const hasChildren = entry.children && entry.children.length > 0;
+
     return `
-        <div class="glass-panel p-4 rounded-lg entry-card transition-all">
+        <div class="glass-panel p-4 rounded-lg entry-card transition-all mb-2">
             <div class="flex items-center space-x-3 mb-3">
                 <div class="w-8 h-8 rounded-full bg-gray-800 border border-gray-700"></div>
                 <div class="text-[11px]">
@@ -116,34 +118,57 @@ function renderEntry(entry) {
             </div>
             
             <p class="text-sm text-gray-300 leading-relaxed mb-4">
-                ${entry.title ? `<strong class="block text-white mb-1">#${entry.title}</strong>` : ''}
                 ${entry.content}
             </p>
             
             <div class="flex items-center space-x-6 text-[10px] font-bold text-gray-500">
                 <div class="flex items-center space-x-2 bg-[#2a2a2a] rounded px-2 py-1">
-                    <button id="vote-up-${entry._id}" onclick="castVote('${entry._id}', 'up')" class="hover:text-white transition">▲</button>
+                    <button onclick="castVote('${entry._id}', 'up')" class="hover:text-white transition">▲</button>
                     <span class="text-gray-300">${(entry.upvotes || 0) - (entry.downvotes || 0)}</span>
-                    <button id="vote-down-${entry._id}" onclick="castVote('${entry._id}', 'down')" class="hover:text-white transition">▼</button>
+                    <button onclick="castVote('${entry._id}', 'down')" class="hover:text-white transition">▼</button>
                 </div>
+                
                 <button onclick="showReplyBox('${entry._id}')" class="hover:text-white flex items-center">
-                    <span class="mr-1">💬</span> KONUŞLAR
+                    <span class="mr-1">💬</span> YANITLA
                 </button>
-                <span class="text-gray-600">KONFİRMED INFO</span>
+
+                ${hasChildren ? `
+                    <button onclick="toggleThreads('${entry._id}')" id="btn-thread-${entry._id}" class="text-blue-500 hover:text-blue-400 flex items-center">
+                        <span class="mr-1">▶</span> ${entry.children.length} yanıtı gör
+                    </button>
+                ` : ''}
             </div>
             
             <div id="reply-${entry._id}" class="hidden mt-4 pt-4 border-t border-[#333]">
                 <textarea id="input-${entry._id}" class="w-full bg-[#121212] border border-[#444] rounded p-2 text-xs outline-none" placeholder="Yanıtını yaz..."></textarea>
-                <button onclick="submitReply('${entry._id}')" class="bg-blue-600 text-white px-4 py-1 rounded mt-2 text-[10px]">GÖNDER</button>
+                <div class="flex justify-end mt-2">
+                    <button onclick="submitReply('${entry._id}')" class="bg-blue-600 text-white px-4 py-1 rounded text-[10px]">GÖNDER</button>
+                </div>
             </div>
 
-            ${entry.children.length > 0 ? `
-                <div class="thread-line mt-4">
+            ${hasChildren ? `
+                <div id="children-${entry._id}" class="hidden thread-line mt-4">
                     ${entry.children.map(renderEntry).join('')}
                 </div>
             ` : ''}
         </div>
     `;
+}
+
+function toggleThreads(id) {
+    const threadDiv = document.getElementById(`children-${id}`);
+    const btn = document.getElementById(`btn-thread-${id}`);
+    const isHidden = threadDiv.classList.contains('hidden');
+
+    if (isHidden) {
+        threadDiv.classList.remove('hidden');
+        btn.innerHTML = `<span class="mr-1">▼</span> Yanıtları gizle`;
+    } else {
+        threadDiv.classList.add('hidden');
+        // Orijinal yanıt sayısını korumak için buton metnini tekrar hesaplatabiliriz 
+        // veya basitçe eski haline döndürebiliriz:
+        btn.innerHTML = `<span class="mr-1">▶</span> Yanıtları gör`;
+    }
 }
 
 async function createTopic() {
