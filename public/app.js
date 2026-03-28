@@ -592,12 +592,28 @@ window.onload = () => {
 };
 
 // Paneli açıp kapatan TEK fonksiyon
-function toggleNewTopicArea() {
-    const area = document.getElementById('new-topic-area');
-    if (area) {
-        area.classList.toggle('hidden');
-        if (!area.classList.contains('hidden')) {
+// Modal Aç/Kapat
+function toggleNewTopicModal() {
+    const modal = document.getElementById('new-topic-modal');
+    if (modal) {
+        modal.classList.toggle('hidden');
+        if (!modal.classList.contains('hidden')) {
             document.getElementById('topic-title').focus();
         }
     }
+}
+
+// Modal dışına tıklayınca kapatma (Şık dokunuş)
+window.addEventListener('click', (e) => {
+    const modal = document.getElementById('new-topic-modal');
+    if (e.target === modal) {
+        toggleNewTopicModal();
+    }
+});
+
+// createTopic fonksiyonun içindeki şu satırı da güncelle:
+// res.ok olduğunda paneli değil MODALI kapatmalı:
+if (res.ok) {
+    // ... diğer kodlar ...
+    toggleNewTopicModal(); // Burayı böyle güncelle
 }
