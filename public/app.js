@@ -279,15 +279,18 @@ async function handleAuth(action, username, password) {
 function updateNav() {
     const nav = document.getElementById('auth-buttons');
     if (currentUser) {
+        // BURAYI GÜNCELLEDİK: Kullanıcı ismine onclick="openProfile(...)" ekledik
         nav.innerHTML = `
-            <span class="text-xs text-gray-400 flex items-center">@${currentUser.username}</span>
-            <button onclick="logout()" class="text-xs bg-red-900/30 text-red-500 px-3 py-1 rounded ml-2">ÇIKIŞ</button>
+            <span onclick="openProfile('${currentUser.username}')" 
+                  class="text-xs text-gray-400 flex items-center cursor-pointer hover:text-white transition-colors">
+                @${currentUser.username}
+            </span>
+            <button onclick="logout()" class="text-[10px] bg-red-900/20 text-red-500 px-3 py-1 rounded ml-3 hover:bg-red-900/40 transition-all uppercase font-bold">ÇIKIŞ</button>
         `;
-        // BURADAKİ classList.remove('hidden') SATIRINI SİLDİK!
     } else {
         nav.innerHTML = `
-            <button onclick="showAuthModal('login')" class="text-xs font-bold px-3 py-1">GİRİŞ YAP</button>
-            <button onclick="showAuthModal('register')" class="text-xs font-bold bg-white text-black px-3 py-1 rounded">KAYIT OL</button>
+            <button onclick="showAuthModal('login')" class="text-[10px] font-bold px-3 py-1 hover:text-blue-500 transition-colors uppercase tracking-widest">GİRİŞ YAP</button>
+            <button onclick="showAuthModal('register')" class="text-[10px] font-bold bg-white text-black px-4 py-1.5 rounded uppercase tracking-widest hover:bg-gray-200 transition-all">KAYIT OL</button>
         `;
     }
 }
@@ -355,7 +358,7 @@ function renderEntry(entry) {
                     ${entry.username.substring(0, 1)}
                 </div>
                 <div class="text-[11px]">
-                    <span class="text-white font-bold cursor-pointer hover:text-blue-400 transition">@${entry.username}</span>
+                    <span onclick="openProfile('${entry.username}')" class="text-white font-bold cursor-pointer hover:text-blue-400 transition">@${entry.username}</span>
                     <span class="text-gray-500 ml-2">• ${dateStr}</span>
                 </div>
             </div>
@@ -616,4 +619,59 @@ window.addEventListener('click', (e) => {
 if (res.ok) {
     // ... diğer kodlar ...
     toggleNewTopicModal(); // Burayı böyle güncelle
+}
+
+async function openProfile(username) {
+    const feed = document.getElementById('feed');
+    const topicHeader = document.getElementById('topic-title-display');
+    const entryArea = document.getElementById('entry-submission-area');
+
+    // Entry girme alanını gizle (Başkasının profilindeyken entry girilmez)
+    if (entryArea) entryArea.classList.add('hidden');
+    
+    toggleLoader(true);
+    topicHeader.innerText = `@${username} profili`;
+
+    try {
+        // Tüm postları çek ve bu kullanıcıya ait olanları filtrele
+        // Not: İleride backend'den sadece /api/posts?username=... şeklinde çekmek daha hızlı olur
+        const res = await fetch('/api/posts');
+        const data = await res.json();
+        const userEntries = data.filter(e => e.username === username);
+
+        // Profil Başlık Kartı
+        feed.innerHTML = `
+            <div class="glass-panel p-8 rounded-2xl border-blue-600/20 bg-gradient-to-b from-blue-600/5 to-transparent mb-10 text-center">
+                <div class="w-20 h-20 rounded-full bg-blue-600 mx-auto mb-4 flex items-center justify-center text-3xl font-black shadow-lg shadow-blue-600/20">
+                    ${username.substring(0, 1).toUpperCase()}
+                </div>
+                <h2 class="text-2xl font-black text-white italic uppercase tracking-tighter">@${username}</h2>
+                <div class="flex justify-center space-x-8 mt-6">
+                    <div class="text-center">
+                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Toplam Entry</p>
+                        <p class="text-xl font-black text-blue-500">${userEntries.length}</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Karma/Puan</p>
+                        <p class="text-xl font-black text-purple-500">${calculateKarma(userEntries)}</p>
+                    </div>
+                </div>
+            </div>
+            <h3 class="text-[10px] font-black text-gray-600 mb-6 tracking-[0.3em] uppercase border-b border-white/5 pb-2">SON ENTRY'LERİ</h3>
+            <div id="user-feed-list" class="space-y-6">
+                ${userEntries.length > 0 ? userEntries.map(renderEntry).join('') : '<p class="text-center text-gray-600 text-xs">Bu yazar henüz bir iz bırakmamış...</p>'}
+            </div>
+        `;
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+        console.error("Profil yüklenemedi", e);
+    } finally {
+        toggleLoader(false);
+    }
+}
+
+// Basit Karma Hesaplama (Upvote - Downvote toplamı)
+function calculateKarma(entries) {
+    return entries.reduce((acc, curr) => acc + ((curr.upvotes || 0) - (curr.downvotes || 0)), 0);
 }
