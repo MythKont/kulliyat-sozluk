@@ -52,7 +52,7 @@ async function loadEntries() {
         const data = await res.json();
         
         if (Array.isArray(data)) {
-            // Sadece ana konuları (parentId'si olmayanlar) filtrele
+            // SADECE ANA BAŞLIKLAR (parentId olmayanlar)
             const mainTopics = data.filter(item => !item.parentId);
             
             feed.innerHTML = mainTopics.map(topic => `
@@ -64,19 +64,19 @@ async function loadEntries() {
                     </div>
                     <p class="text-sm text-gray-400 line-clamp-2 font-light">${topic.content}</p>
                     <div class="mt-4 text-[9px] font-bold text-blue-500/60 tracking-widest uppercase">
-                        KONUYA GİT VE YAZILANLARI GÖR →
+                        GÖZ ATMAK İÇİN TIKLA →
                     </div>
                 </div>
             `).join('');
         }
-    } catch (e) { console.error("Yükleme hatası:", e); }
+    } catch (e) { console.error(e); }
     finally { toggleLoader(false); }
 }
 
 // KONU İÇİ: Dallanmış yapıyı gösterir
 async function openTopic(topicId, title) {
     currentTopicId = topicId;
-    currentTopicTitle = title || "Başlıksız Konu";
+    currentTopicTitle = title || "Başlıksız";
 
     const topicHeader = document.getElementById('topic-title-display');
     const entryArea = document.getElementById('entry-submission-area');
@@ -93,7 +93,7 @@ async function openTopic(topicId, title) {
         const data = await res.json();
         if (Array.isArray(data)) renderThreadedFeed(data);
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (e) { console.error("Konu yükleme hatası:", e); }
+    } catch (e) { console.error(e); }
     finally { toggleLoader(false); }
 }
 
@@ -104,67 +104,64 @@ function renderThreadedFeed(data) {
     const entryMap = {};
     const roots = [];
 
+    // Önce her şeyi bir haritaya koy
     data.forEach(item => { 
         item.children = []; 
         entryMap[item._id] = item; 
     });
 
     data.forEach(item => {
-        // Eğer bir parentId varsa ve bu parentId konunun kendisi DEĞİLSE, bu bir yanıttır
+        // Eğer bu bir yanıtsa (parentId var) ve parent bir "başlık" değil, bir "entry" ise:
         if (item.parentId && entryMap[item.parentId] && item.parentId !== currentTopicId) {
             entryMap[item.parentId].children.push(item);
-        } else {
-            // Doğrudan konuya yazılmış ana entry'ler
+        } else if (item.parentId === currentTopicId || !item.parentId) {
+            // Doğrudan başlığa yazılmış ana entry'dir
             roots.push(item);
         }
     });
 
     feed.innerHTML = roots.length > 0 
         ? roots.map(renderEntry).join('') 
-        : `<p class="text-gray-600 text-[10px] text-center mt-10 italic">Burası henüz ıssız...</p>`;
+        : `<p class="text-gray-600 text-[10px] text-center mt-10 italic">Henüz entry girilmemiş...</p>`;
 }
 
 function renderEntry(entry) {
-    const dateStr = new Date(entry.createdAt).toLocaleDateString('tr-TR');
     const hasChildren = entry.children && entry.children.length > 0;
     const score = (entry.upvotes || 0) - (entry.downvotes || 0);
 
     return `
-        <div class="glass-panel p-4 rounded-lg entry-card transition-all mb-2 border border-white/5">
-            <div class="flex items-center space-x-3 mb-3">
-                <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white uppercase">
-                    ${entry.username.substring(0, 1)}
+        <div class="glass-panel p-4 rounded-lg entry-card border border-white/5 mb-2 transition-all">
+            <div class="flex items-center space-x-2 mb-2 text-[10px]">
+                <div class="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white uppercase">
+                    ${entry.username[0]}
                 </div>
-                <div class="text-[11px]">
-                    <span onclick="openProfile('${entry.username}')" class="text-white font-bold cursor-pointer hover:text-blue-400">@${entry.username}</span>
-                    <span class="text-gray-500 ml-2">• ${dateStr}</span>
-                </div>
+                <span class="text-blue-500 font-bold">@${entry.username}</span>
+                <span class="text-gray-600">• ${new Date(entry.createdAt).toLocaleDateString('tr-TR')}</span>
             </div>
-            <div class="mb-4">
-                <p class="text-sm text-gray-300 leading-relaxed font-light">${entry.content}</p>
-            </div>
-            <div class="flex items-center space-x-6 text-[10px] font-bold text-gray-500 border-t border-white/5 pt-3">
-                <div class="flex items-center space-x-2 bg-white/5 rounded-md px-2 py-1">
+            
+            <p class="text-sm text-gray-300 leading-relaxed">${entry.content}</p>
+            
+            <div class="flex items-center space-x-4 mt-3 pt-3 border-t border-white/5 text-[9px] font-black">
+                <div class="flex items-center space-x-2 bg-white/5 px-2 py-1 rounded">
                     <button onclick="castVote('${entry._id}', 'up')" class="hover:text-green-500">▲</button>
-                    <span class="text-gray-300">${score}</span>
+                    <span class="text-gray-400">${score}</span>
                     <button onclick="castVote('${entry._id}', 'down')" class="hover:text-red-500">▼</button>
                 </div>
-                <button onclick="showReplyBox('${entry._id}')" class="hover:text-white flex items-center">
-                    <span class="mr-1 text-blue-500">💬</span> YANITLA
-                </button>
+                <button onclick="showReplyBox('${entry._id}')" class="text-gray-500 hover:text-white uppercase tracking-tighter">💬 YANITLA</button>
                 ${hasChildren ? `
-                    <button onclick="toggleThreads('${entry._id}')" id="btn-thread-${entry._id}" class="text-blue-500/80">
-                        <span class="mr-1">▶</span> ${entry.children.length} YANIT
-                    </button>
-                ` : ''}
+                    <button onclick="toggleThreads('${entry._id}')" id="btn-thread-${entry._id}" class="text-blue-500/50 uppercase tracking-tighter">
+                        ▶ ${entry.children.length} YANIT
+                    </button>` : ''}
             </div>
-            <div id="reply-${entry._id}" class="hidden mt-4 pt-4 border-t border-white/5">
-                <textarea id="input-${entry._id}" class="w-full bg-black/40 border border-[#333] rounded p-3 text-xs text-gray-200 outline-none focus:border-blue-500" placeholder="Yanıtın nedir?"></textarea>
-                <div class="flex justify-end mt-2 space-x-2">
-                    <button onclick="submitReply('${entry._id}')" class="bg-blue-600 text-white px-5 py-1.5 rounded-full text-[10px]">GÖNDER</button>
+
+            <div id="reply-${entry._id}" class="hidden mt-3 bg-black/20 p-3 rounded border border-white/5">
+                <textarea id="input-${entry._id}" class="w-full bg-black/50 border border-[#222] rounded p-2 text-xs text-white outline-none focus:border-blue-600" placeholder="Yanıtını buraya bırak..."></textarea>
+                <div class="flex justify-end mt-2">
+                    <button onclick="submitReply('${entry._id}')" class="bg-blue-600 text-white px-4 py-1 rounded text-[10px] uppercase font-bold">GÖNDER</button>
                 </div>
             </div>
-            <div id="children-${entry._id}" class="hidden thread-line mt-4 ml-4 border-l border-white/10 pl-4">
+
+            <div id="children-${entry._id}" class="hidden mt-3 ml-4 border-l-2 border-white/5 pl-4">
                 ${entry.children.map(renderEntry).join('')}
             </div>
         </div>
@@ -215,28 +212,27 @@ async function submitEntryToTopic() {
         if (res.ok) {
             input.value = '';
             openTopic(currentTopicId, currentTopicTitle);
-            loadTrends();
         }
-    } catch (e) { alert("Hata oluştu."); }
+    } catch (e) { console.error(e); }
 }
 
 async function submitReply(parentId) {
     const input = document.getElementById(`input-${parentId}`);
     const content = input.value.trim();
-    if (!content) return;
+    if (!content || !currentUser) return;
 
     try {
         const res = await fetch('/api/posts', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content, parentId: parentId })
+            body: JSON.stringify({ content, parentId })
         });
         if (res.ok) {
             input.value = '';
-            // Başlık içindeysek başlığı tazele, ana sayfadaysak (profil vs) akışı tazele
-            currentTopicId ? openTopic(currentTopicId, currentTopicTitle) : loadEntries();
+            // Başarı durumunda konuyu tazeleyerek hiyerarşiyi yeniden kurar
+            openTopic(currentTopicId, currentTopicTitle);
         }
-    } catch (e) { alert("Gönderilemedi."); }
+    } catch (e) { console.error(e); }
 }
 
 // --- PROFİL & YARDIMCI ARAÇLAR ---
@@ -290,28 +286,21 @@ function toggleNewTopicModal() {
 }
 
 function showReplyBox(id) { document.getElementById(`reply-${id}`).classList.toggle('hidden'); }
+const toggleLoader = (show) => document.getElementById('loading').classList.toggle('hidden', !show);
 
 function toggleThreads(id) {
     const div = document.getElementById(`children-${id}`);
     const btn = document.getElementById(`btn-thread-${id}`);
-    div.classList.toggle('hidden');
-    btn.innerHTML = div.classList.contains('hidden') ? `<span class="mr-1">▶</span> ${div.children.length} YANIT` : `<span class="mr-1">▼</span> GİZLE`;
+    const isHidden = div.classList.toggle('hidden');
+    btn.innerHTML = isHidden ? `▶ ${div.children.length} YANIT` : `▼ GİZLE`;
 }
-
-const toggleLoader = (show) => document.getElementById('loading').classList.toggle('hidden', !show);
 
 function updateNav() {
     const nav = document.getElementById('auth-buttons');
     if (currentUser) {
-        nav.innerHTML = `
-            <span onclick="openProfile('${currentUser.username}')" class="text-xs text-gray-400 cursor-pointer hover:text-white transition-colors uppercase font-bold tracking-widest">@${currentUser.username}</span>
-            <button onclick="logout()" class="text-[10px] bg-red-900/20 text-red-500 px-3 py-1 rounded ml-3 hover:bg-red-900/40 transition-all font-bold">ÇIKIŞ</button>
-        `;
+        nav.innerHTML = `<span onclick="openProfile('${currentUser.username}')" class="text-xs text-gray-400 cursor-pointer uppercase font-bold tracking-widest">@${currentUser.username}</span><button onclick="logout()" class="text-[10px] text-red-500 ml-3 font-bold">ÇIKIŞ</button>`;
     } else {
-        nav.innerHTML = `
-            <button onclick="showAuthModal('login')" class="text-[10px] font-bold px-3 py-1 hover:text-blue-500 uppercase tracking-widest">GİRİŞ YAP</button>
-            <button onclick="showAuthModal('register')" class="text-[10px] font-bold bg-white text-black px-4 py-1.5 rounded uppercase tracking-widest hover:bg-gray-200 transition-all">KAYIT OL</button>
-        `;
+        nav.innerHTML = `<button onclick="showAuthModal('login')" class="text-[10px] font-bold mr-4 uppercase">GİRİŞ YAP</button><button onclick="showAuthModal('register')" class="bg-white text-black px-4 py-1 rounded text-[10px] font-bold uppercase">KAYIT OL</button>`;
     }
 }
 
