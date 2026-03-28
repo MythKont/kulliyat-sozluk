@@ -1,32 +1,48 @@
-/* Dallanma çizgileri */
+/* --- MODERN ENTRY & HİYERARŞİ DÜZENİ --- */
+
+/* Ana Entry Kartları */
+.entry-card {
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    margin-bottom: 1.5rem; /* Entry'ler nefes alsın */
+}
+
+.entry-card:hover {
+    transform: translateX(4px); /* Hafif sağa kayma efekti */
+    border-color: rgba(59, 130, 246, 0.3) !important; /* Kenarlık rengi canlansın */
+}
+
+/* Yanıt Dallanma Çizgileri (Hiyerarşi) */
 .thread-line {
-    border-left: 2px solid #e2e8f0; /* Açık gri çizgi */
-    margin-left: 0.75rem;
-    padding-left: 1rem;
-    transition: border-color 0.3s;
+    border-left: 2px solid rgba(51, 51, 51, 0.8); /* Varsayılan koyu çizgi */
+    margin-left: 1.25rem; /* İçeriden başlatma */
+    padding-left: 1.5rem;
+    margin-top: 0.75rem;
+    border-bottom-left-radius: 12px; /* Köşeli değil, daha akışkan dursun */
+    transition: border-color 0.3s ease;
 }
 
+/* Bir yanıtın üzerine gelince bağlandığı çizgiyi renklendir */
 .thread-line:hover {
-    border-left-color: #3b82f6; /* Üzerine gelince mavi olur */
+    border-left-color: #3b82f6; /* Maviye dönerek hangi dala ait olduğunu gösterir */
 }
 
-/* Giriş/Kayıt Modal (Opsiyonel ama şık durur) */
+/* Akıcı Geçişler & Animasyonlar */
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Modal / Popup Aktif Durumu */
 .modal-active {
     display: flex !important;
+    backdrop-filter: blur(8px); /* Arkadaki içeriği şıkça bulandırır */
 }
 
-/* Akıcı geçişler */
-.entry-card {
-    transition: transform 0.2s ease;
-}
-.entry-card:hover {
-    transform: translateX(4px);
-}
-
-.thread-line {
-    border-left: 1px solid #333; /* Daha ince, zarif bir çizgi */
-    margin-left: 0.75rem;
-    padding-left: 1.25rem;
-    margin-top: 0.5rem;
-    border-bottom-left-radius: 8px; /* Alt kısımlarda hafif yuvarlama */
+/* Ekstra: Yanıt kutusu için odaklanma efekti */
+textarea:focus {
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }

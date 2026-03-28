@@ -471,32 +471,28 @@ async function createTopic() {
 async function submitReply(parentId) {
     const input = document.getElementById(`input-${parentId}`);
     const content = input.value.trim();
-    if (!content) return;
-    if (!currentUser) return alert("Giriş yapmalısın!");
 
-    toggleLoader(true);
+    if (!content) return;
+
     try {
         const res = await fetch('/api/posts', {
             method: 'POST',
-            headers: { 
-                'Authorization': `Bearer ${currentUser.token}`, 
-                'Content-Type': 'application/json' 
-            },
-            body: JSON.stringify({ 
-                content: content, 
-                parentId: parentId // Hangi mesaja yanıt veriliyorsa onun ID'si
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                content: content,
+                parentId: parentId, // Kritik nokta: Hangi mesaja yanıt verildiği
+                topicId: currentTopicId // Hala aynı başlık altındayız
             })
         });
 
         if (res.ok) {
             input.value = '';
-            // Konuyu tekrar yükle ki yeni yanıtı görelim
-            if (selectedTopicId) openTopic(selectedTopicId);
+            showReplyBox(parentId); // Kutu kapansın
+            // Sayfayı yenilemek yerine sadece o başlığı tekrar çekelim ki yanıt görünsün
+            loadTopic(currentTopicId); 
         }
     } catch (e) {
-        alert("Mesaj gönderilemedi.");
-    } finally { 
-        toggleLoader(false); 
+        console.error("Yanıt gönderilemedi", e);
     }
 }
 
