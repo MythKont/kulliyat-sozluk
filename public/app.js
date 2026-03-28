@@ -279,15 +279,18 @@ async function handleAuth(action, username, password) {
 function updateNav() {
     const nav = document.getElementById('auth-buttons');
     if (currentUser) {
+        // BURAYI GÜNCELLEDİK: Kullanıcı ismine onclick="openProfile(...)" ekledik
         nav.innerHTML = `
-            <span class="text-xs text-gray-400 flex items-center">@${currentUser.username}</span>
-            <button onclick="logout()" class="text-xs bg-red-900/30 text-red-500 px-3 py-1 rounded ml-2">ÇIKIŞ</button>
+            <span onclick="openProfile('${currentUser.username}')" 
+                  class="text-xs text-gray-400 flex items-center cursor-pointer hover:text-white transition-colors">
+                @${currentUser.username}
+            </span>
+            <button onclick="logout()" class="text-[10px] bg-red-900/20 text-red-500 px-3 py-1 rounded ml-3 hover:bg-red-900/40 transition-all uppercase font-bold">ÇIKIŞ</button>
         `;
-        // BURADAKİ classList.remove('hidden') SATIRINI SİLDİK!
     } else {
         nav.innerHTML = `
-            <button onclick="showAuthModal('login')" class="text-xs font-bold px-3 py-1">GİRİŞ YAP</button>
-            <button onclick="showAuthModal('register')" class="text-xs font-bold bg-white text-black px-3 py-1 rounded">KAYIT OL</button>
+            <button onclick="showAuthModal('login')" class="text-[10px] font-bold px-3 py-1 hover:text-blue-500 transition-colors uppercase tracking-widest">GİRİŞ YAP</button>
+            <button onclick="showAuthModal('register')" class="text-[10px] font-bold bg-white text-black px-4 py-1.5 rounded uppercase tracking-widest hover:bg-gray-200 transition-all">KAYIT OL</button>
         `;
     }
 }
@@ -468,32 +471,28 @@ async function createTopic() {
 async function submitReply(parentId) {
     const input = document.getElementById(`input-${parentId}`);
     const content = input.value.trim();
-    if (!content) return;
-    if (!currentUser) return alert("Giriş yapmalısın!");
 
-    toggleLoader(true);
+    if (!content) return;
+
     try {
         const res = await fetch('/api/posts', {
             method: 'POST',
-            headers: { 
-                'Authorization': `Bearer ${currentUser.token}`, 
-                'Content-Type': 'application/json' 
-            },
-            body: JSON.stringify({ 
-                content: content, 
-                parentId: parentId // Hangi mesaja yanıt veriliyorsa onun ID'si
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                content: content,
+                parentId: parentId, // Kritik nokta: Hangi mesaja yanıt verildiği
+                topicId: currentTopicId // Hala aynı başlık altındayız
             })
         });
 
         if (res.ok) {
             input.value = '';
-            // Konuyu tekrar yükle ki yeni yanıtı görelim
-            if (selectedTopicId) openTopic(selectedTopicId);
+            showReplyBox(parentId); // Kutu kapansın
+            // Sayfayı yenilemek yerine sadece o başlığı tekrar çekelim ki yanıt görünsün
+            loadTopic(currentTopicId); 
         }
     } catch (e) {
-        alert("Mesaj gönderilemedi.");
-    } finally { 
-        toggleLoader(false); 
+        console.error("Yanıt gönderilemedi", e);
     }
 }
 
