@@ -1,7 +1,5 @@
 // --- GLOBAL DEĞİŞKENLER ---
 let currentUser = JSON.parse(localStorage.getItem("user")) || null;
-let lastCheckTime = Date.now();
-let newPostsCount = 0;
 let currentTopicId = null;
 let currentTopicTitle = "";
 
@@ -9,7 +7,7 @@ let currentTopicTitle = "";
 window.onload = () => {
     updateNav();
     loadTrends();
-    loadEntries(); // İlk açılışta genel akışı getir
+    loadEntries(); // İlk açılışta ana başlık listesini getirir
 };
 
 // --- İÇERİK YÜKLEME FONKSİYONLARI ---
@@ -21,7 +19,6 @@ async function loadTrends() {
     try {
         const res = await fetch('/api/posts?trend=true');
         const data = await res.json();
-
         if (!Array.isArray(data)) return;
 
         trendList.innerHTML = data.map(item => `
@@ -39,12 +36,13 @@ async function loadTrends() {
     } catch (e) { console.error("Trend yüklenemedi", e); }
 }
 
+// ANA SAYFA: Sadece başlıkları listeler
 async function loadEntries() {
     const feed = document.getElementById('feed');
     const topicHeader = document.getElementById('topic-title-display');
     const entryArea = document.getElementById('entry-submission-area');
     
-    currentTopicId = null; // Genel akıştayız
+    currentTopicId = null;
     if (topicHeader) topicHeader.innerText = "KÜLLİYAT'A HOŞ GELDİN";
     if (entryArea) entryArea.classList.add('hidden');
     
@@ -52,11 +50,30 @@ async function loadEntries() {
     try {
         const res = await fetch('/api/posts');
         const data = await res.json();
-        if (Array.isArray(data)) renderThreadedFeed(data);
+        
+        if (Array.isArray(data)) {
+            // Sadece ana konuları (parentId'si olmayanlar) filtrele
+            const mainTopics = data.filter(item => !item.parentId);
+            
+            feed.innerHTML = mainTopics.map(topic => `
+                <div onclick="openTopic('${topic._id}', '${topic.title}')" 
+                     class="glass-panel p-6 rounded-lg entry-card cursor-pointer border border-white/5 hover:border-blue-500/50 transition-all mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="text-blue-400 font-black text-xl italic uppercase tracking-tighter"># ${topic.title}</h2>
+                        <span class="text-[10px] text-gray-600 font-mono uppercase">@${topic.username}</span>
+                    </div>
+                    <p class="text-sm text-gray-400 line-clamp-2 font-light">${topic.content}</p>
+                    <div class="mt-4 text-[9px] font-bold text-blue-500/60 tracking-widest uppercase">
+                        KONUYA GİT VE YAZILANLARI GÖR →
+                    </div>
+                </div>
+            `).join('');
+        }
     } catch (e) { console.error("Yükleme hatası:", e); }
     finally { toggleLoader(false); }
 }
 
+// KONU İÇİ: Dallanmış yapıyı gösterir
 async function openTopic(topicId, title) {
     currentTopicId = topicId;
     currentTopicTitle = title || "Başlıksız Konu";
@@ -80,7 +97,7 @@ async function openTopic(topicId, title) {
     finally { toggleLoader(false); }
 }
 
-// --- CORE RENDER MANTIĞI ---
+// --- CORE RENDER MANTIĞI (Dallanma Burada) ---
 
 function renderThreadedFeed(data) {
     const feed = document.getElementById('feed');
@@ -93,9 +110,11 @@ function renderThreadedFeed(data) {
     });
 
     data.forEach(item => {
+        // Eğer bir parentId varsa ve bu parentId konunun kendisi DEĞİLSE, bu bir yanıttır
         if (item.parentId && entryMap[item.parentId] && item.parentId !== currentTopicId) {
             entryMap[item.parentId].children.push(item);
         } else {
+            // Doğrudan konuya yazılmış ana entry'ler
             roots.push(item);
         }
     });
@@ -122,7 +141,6 @@ function renderEntry(entry) {
                 </div>
             </div>
             <div class="mb-4">
-                ${entry.title ? `<h2 class="text-blue-400 font-bold text-base mb-2"># ${entry.title}</h2>` : ''}
                 <p class="text-sm text-gray-300 leading-relaxed font-light">${entry.content}</p>
             </div>
             <div class="flex items-center space-x-6 text-[10px] font-bold text-gray-500 border-t border-white/5 pt-3">
@@ -146,7 +164,7 @@ function renderEntry(entry) {
                     <button onclick="submitReply('${entry._id}')" class="bg-blue-600 text-white px-5 py-1.5 rounded-full text-[10px]">GÖNDER</button>
                 </div>
             </div>
-            <div id="children-${entry._id}" class="hidden thread-line mt-4">
+            <div id="children-${entry._id}" class="hidden thread-line mt-4 ml-4 border-l border-white/10 pl-4">
                 ${entry.children.map(renderEntry).join('')}
             </div>
         </div>
@@ -215,10 +233,13 @@ async function submitReply(parentId) {
         });
         if (res.ok) {
             input.value = '';
+            // Başlık içindeysek başlığı tazele, ana sayfadaysak (profil vs) akışı tazele
             currentTopicId ? openTopic(currentTopicId, currentTopicTitle) : loadEntries();
         }
     } catch (e) { alert("Gönderilemedi."); }
 }
+
+// --- PROFİL & YARDIMCI ARAÇLAR ---
 
 async function openProfile(username) {
     const feed = document.getElementById('feed');
@@ -260,8 +281,6 @@ async function openProfile(username) {
     finally { toggleLoader(false); }
 }
 
-// --- YARDIMCI ARAÇLAR ---
-
 function toggleNewTopicModal() {
     const modal = document.getElementById('new-topic-modal');
     if (modal) {
@@ -276,7 +295,7 @@ function toggleThreads(id) {
     const div = document.getElementById(`children-${id}`);
     const btn = document.getElementById(`btn-thread-${id}`);
     div.classList.toggle('hidden');
-    btn.innerHTML = div.classList.contains('hidden') ? `<span class="mr-1">▶</span> Yanıtları gör` : `<span class="mr-1">▼</span> Gizle`;
+    btn.innerHTML = div.classList.contains('hidden') ? `<span class="mr-1">▶</span> ${div.children.length} YANIT` : `<span class="mr-1">▼</span> GİZLE`;
 }
 
 const toggleLoader = (show) => document.getElementById('loading').classList.toggle('hidden', !show);
