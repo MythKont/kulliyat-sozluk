@@ -1,32 +1,41 @@
-/* Dallanma çizgileri */
+/* --- Gelişmiş Entry ve Yanıt Görünümü --- */
+
+/* Ana Entry Kartları */
+.entry-card {
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    margin-bottom: 1rem;
+}
+
+.entry-card:hover {
+    transform: translateX(4px); /* Hafif sağa kayma efekti */
+}
+
+/* Dallanma Çizgileri (Yanıtlar için) */
 .thread-line {
-    border-left: 2px solid #e2e8f0; /* Açık gri çizgi */
+    border-left: 1px solid #333; /* Zarif koyu çizgi */
     margin-left: 0.75rem;
-    padding-left: 1rem;
-    transition: border-color 0.3s;
+    padding-left: 1.25rem;
+    margin-top: 0.5rem;
+    border-bottom-left-radius: 8px; /* Yumuşak geçiş */
+    transition: border-color 0.3s, border-left-width 0.2s;
 }
 
+/* Fareyle üzerine gelince canlanan hat */
 .thread-line:hover {
-    border-left-color: #3b82f6; /* Üzerine gelince mavi olur */
+    border-left: 2px solid #3b82f6; /* Mavi ve daha belirgin */
 }
 
-/* Giriş/Kayıt Modal (Opsiyonel ama şık durur) */
+/* Modal Kontrolü */
 .modal-active {
     display: flex !important;
 }
 
-/* Akıcı geçişler */
-.entry-card {
-    transition: transform 0.2s ease;
-}
-.entry-card:hover {
-    transform: translateX(4px);
+/* Akıcı Animasyon */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-.thread-line {
-    border-left: 1px solid #333; /* Daha ince, zarif bir çizgi */
-    margin-left: 0.75rem;
-    padding-left: 1.25rem;
-    margin-top: 0.5rem;
-    border-bottom-left-radius: 8px; /* Alt kısımlarda hafif yuvarlama */
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
 }
