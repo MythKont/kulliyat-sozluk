@@ -94,53 +94,30 @@ async function createTopic() {
     const title = titleInput.value.trim();
     const content = contentInput.value.trim();
     
-    if (!title || !content) return alert("Başlık ve içerik girmelisin!");
-    // Tokat gibi hata almamak için token kontrolü
-    if (!currentUser || !currentUser.token) return alert("Önce giriş yapmalısın!");
+    if (!title || !content) return alert("Başlık ve ilk entry boş olamaz!");
+    if (!currentUser) return alert("Giriş yapmalısın!");
 
     toggleLoader(true);
     try {
         const res = await fetch('/api/posts', {
             method: 'POST',
-            headers: { 
-                'Authorization': `Bearer ${currentUser.token}`, 
-                'Content-Type': 'application/json' 
-            },
-            body: JSON.stringify({ 
-                title: title, 
-                content: content,
-                parentId: null // Bu bir ana konudur
-            })
+            headers: { 'Authorization': `Bearer ${currentUser.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, content, parentId: null })
         });
 
         if (res.ok) {
-            // Başarılıysa alanları temizle
-            titleInput.value = ''; 
-            contentInput.value = '';
-
-            // --- YENİ EKLEDİĞİMİZ SATIR: MODALI KAPAT ---
-            toggleNewTopicModal(); 
-
-            // Sağ taraftaki listeyi güncelle
-            await loadTrends(); 
-            
             const result = await res.json();
-            // Kullanıcıyı yeni konuya sok veya sayfayı tazele
-            if(result.topicId) {
-                openTopic(result.topicId); 
-            } else {
-                location.reload(); 
-            }
-        } else {
-            const err = await res.json();
-            alert(err.error || "Konu açılamadı.");
+            titleInput.value = '';
+            contentInput.value = '';
+            // PANALİ KAPAT
+            document.getElementById('new-topic-area').classList.add('hidden');
+            
+            // YENİ AÇILAN KONUYA GİT
+            await loadTrends();
+            openTopic(result.topicId, title); 
         }
-    } catch (err) {
-        console.error(err);
-        alert("Bağlantı hatası!");
-    } finally {
-        toggleLoader(false);
-    }
+    } catch (err) { alert("Bağlantı hatası!"); }
+    finally { toggleLoader(false); }
 }
 
 // 4. KONUYA ENTRY GİR (SADECE MESAJ)
@@ -302,18 +279,15 @@ async function handleAuth(action, username, password) {
 function updateNav() {
     const nav = document.getElementById('auth-buttons');
     if (currentUser) {
-        // BURAYI GÜNCELLEDİK: Kullanıcı ismine onclick="openProfile(...)" ekledik
         nav.innerHTML = `
-            <span onclick="openProfile('${currentUser.username}')" 
-                  class="text-xs text-gray-400 flex items-center cursor-pointer hover:text-white transition-colors">
-                @${currentUser.username}
-            </span>
-            <button onclick="logout()" class="text-[10px] bg-red-900/20 text-red-500 px-3 py-1 rounded ml-3 hover:bg-red-900/40 transition-all uppercase font-bold">ÇIKIŞ</button>
+            <span class="text-xs text-gray-400 flex items-center">@${currentUser.username}</span>
+            <button onclick="logout()" class="text-xs bg-red-900/30 text-red-500 px-3 py-1 rounded ml-2">ÇIKIŞ</button>
         `;
+        // BURADAKİ classList.remove('hidden') SATIRINI SİLDİK!
     } else {
         nav.innerHTML = `
-            <button onclick="showAuthModal('login')" class="text-[10px] font-bold px-3 py-1 hover:text-blue-500 transition-colors uppercase tracking-widest">GİRİŞ YAP</button>
-            <button onclick="showAuthModal('register')" class="text-[10px] font-bold bg-white text-black px-4 py-1.5 rounded uppercase tracking-widest hover:bg-gray-200 transition-all">KAYIT OL</button>
+            <button onclick="showAuthModal('login')" class="text-xs font-bold px-3 py-1">GİRİŞ YAP</button>
+            <button onclick="showAuthModal('register')" class="text-xs font-bold bg-white text-black px-3 py-1 rounded">KAYIT OL</button>
         `;
     }
 }
@@ -494,27 +468,32 @@ async function createTopic() {
 async function submitReply(parentId) {
     const input = document.getElementById(`input-${parentId}`);
     const content = input.value.trim();
-
     if (!content) return;
+    if (!currentUser) return alert("Giriş yapmalısın!");
 
+    toggleLoader(true);
     try {
-        const response = await fetch('/api/posts', {
+        const res = await fetch('/api/posts', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                content: content,
-                parentId: parentId,
-                topicId: currentTopicId
+            headers: { 
+                'Authorization': `Bearer ${currentUser.token}`, 
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ 
+                content: content, 
+                parentId: parentId // Hangi mesaja yanıt veriliyorsa onun ID'si
             })
         });
 
-        if (response.ok) {
+        if (res.ok) {
             input.value = '';
-            showReplyBox(parentId); 
-            loadTopic(currentTopicId); // Yanıtı anında listeye ekler
+            // Konuyu tekrar yükle ki yeni yanıtı görelim
+            if (selectedTopicId) openTopic(selectedTopicId);
         }
-    } catch (err) {
-        console.error("Yanıt hatası:", err);
+    } catch (e) {
+        alert("Mesaj gönderilemedi.");
+    } finally { 
+        toggleLoader(false); 
     }
 }
 
@@ -612,15 +591,13 @@ window.onload = () => {
     if (area) area.classList.add('hidden');
 };
 
-// MODAL AÇ/KAPAT (Tertemiz çalışan hali)
+// Paneli açıp kapatan TEK fonksiyon
+// Modal Aç/Kapat
 function toggleNewTopicModal() {
     const modal = document.getElementById('new-topic-modal');
     if (modal) {
         modal.classList.toggle('hidden');
-        // Açıldığında başlık kutusuna odaklan
         if (!modal.classList.contains('hidden')) {
-            document.getElementById('topic-title').value = '';
-            document.getElementById('topic-content').value = '';
             document.getElementById('topic-title').focus();
         }
     }
